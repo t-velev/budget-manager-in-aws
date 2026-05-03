@@ -1,0 +1,18 @@
+{
+  "name": "AWS Data Engineering Workspace",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions":[
+        "hashicorp.terraform",
+        "ms-python.python",
+        "amazonwebservices.aws-toolkit-vscode",
+        "mhutchie.git-graph"
+      ]
+    }
+  }
+}
