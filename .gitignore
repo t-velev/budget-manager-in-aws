@@ -1,5 +1,10 @@
- .terraform/, 
- *.tfstate, 
- *.tfstate.backup, 
- __pycache__/, 
- .env
+# TERRAFORM
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfvars
+*.tfstate.backup
+
+# PYTHON AND ENV
+/__pycache__/
+.env
