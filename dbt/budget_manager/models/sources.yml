@@ -1,0 +1,13 @@
+sources:
+  - name: raw
+    database: "{{ env_var('POSTGRES_DB') }}"  
+    schema: raw
+    tables:
+      - name: account
+      - name: budget
+      - name: category
+      - name: month
+      - name: subcategory
+      - name: transaction
+      - name: year
+      - name: notion_ids_audit

@@ -1,0 +1,26 @@
+snapshots:
+  - name: dim_month
+    relation: ref('stg_month')
+    config:
+      schema: warehouse
+      unique_key: month_id_bk
+      check_cols:
+        - month_id_bk
+        - month_name
+
+      post_hook:
+        # Create Primary key
+        - "{{ create_pk('dk') }}"
+
+        # Create Unique index
+        - "{{ create_ui(['month_name', 'scd2_valid_to']) }}"
+
+        # Apply Not null
+        - "{{ apply_not_null('month_id_bk') }}"
+        - "{{ apply_not_null('month_name') }}"
+        - "{{ apply_not_null('created_time') }}"
+        - "{{ apply_not_null('last_edited_time') }}"
+
+        # Insert new and deleted count into sys_etl_stats
+        - "{{ insert_new_into_stats('warehouse', 'dim_month', 'sys_etl_stats')}}"
+        - "{{ insert_deleted_into_stats('warehouse', 'dim_month', 'sys_etl_stats')}}"        

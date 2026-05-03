@@ -1,0 +1,25 @@
+snapshots:
+  - name: fact_transaction_audit_log
+    relation: ref('stg_transaction')
+    config:
+      schema: warehouse
+      unique_key: transaction_id_bk
+      check_cols:
+        - transaction_id_bk
+        - transaction_name
+        - transaction_type
+        - transaction_date
+        - transaction_amount
+        - transaction_status
+        - note
+        - year_id
+        - account_id
+        - category_id
+        - subcategory_id
+      pre_hook:
+        - "{{ drop_pk() }}"
+      post_hook:
+        - "{{ create_pk('dk') }}"
+        # Insert new and deleted count into sys_etl_stats
+        - "{{ insert_new_into_stats('warehouse', 'fact_transaction_audit_log', 'sys_etl_stats')}}"
+        - "{{ insert_deleted_into_stats('warehouse', 'fact_transaction_audit_log', 'sys_etl_stats')}}"
