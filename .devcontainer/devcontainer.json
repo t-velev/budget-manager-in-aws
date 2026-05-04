@@ -16,6 +16,12 @@
       "extensions":[
         "hashicorp.terraform",
         "ms-python.python",
+        "ms-python.black-formatter",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "mtxr.sqltools",
+        "renesaarsoo.sql-formatter-vsc",
+        "samuelcolvin.jinjahtml",
         "amazonwebservices.aws-toolkit-vscode",
         "mhutchie.git-graph"
       ]
