@@ -33,19 +33,19 @@ resource "aws_security_group" "rds_sg" {
 
 # 4. Amazon RDS: The PostgreSQL Database
 resource "aws_db_instance" "budget_db" {
-  identifier             = "aws-budget-manager-db"
-  engine                 = "postgres"
-  engine_version         = "18"
-  instance_class         = "db.t3.micro"    # This is the Free Tier eligible instance
-  allocated_storage      = 20               # 20 GB is the max Free Tier storage
-  storage_type           = "gp2"
+  identifier        = "aws-budget-manager-db"
+  engine            = "postgres"
+  engine_version    = "18"
+  instance_class    = "db.t3.micro" # This is the Free Tier eligible instance
+  allocated_storage = 20            # 20 GB is the max Free Tier storage
+  storage_type      = "gp2"
 
-  username               = var.db_username
-  password               = var.db_password
+  username = var.db_username
+  password = var.db_password
 
-  vpc_security_group_ids =[aws_security_group.rds_sg.id]
-  publicly_accessible    = true             # So the local VS Code can reach it
-  skip_final_snapshot    = true             # So we can cleanly delete it without AWS saving backups
+  vpc_security_group_ids = [aws_security_group.rds_sg.id]
+  publicly_accessible    = true # So the local VS Code can reach it
+  skip_final_snapshot    = true # So we can cleanly delete it without AWS saving backups
 }
 
 # 5. Output: Print the database connection address after it builds

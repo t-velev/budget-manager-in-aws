@@ -6,5 +6,5 @@ variable "db_username" {
 variable "db_password" {
   description = "Database administrator password"
   type        = string
-  sensitive   = true  # Hides it from Terraform terminal output
+  sensitive   = true # Hides it from Terraform terminal output
 }
