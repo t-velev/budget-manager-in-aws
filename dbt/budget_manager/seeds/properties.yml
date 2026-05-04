@@ -3,7 +3,7 @@ seeds:
     description: 'Contains different attributes of pre-populated list of dates.'
     config:
       enabled: true
-      database: budget_manager_dwh
+      database: "{{ env_var('POSTGRES_DB') }}"
       schema: warehouse
       column_types:
         dk:                             varchar(10)

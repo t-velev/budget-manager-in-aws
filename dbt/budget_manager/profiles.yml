@@ -2,7 +2,7 @@ budget_manager:
   outputs:
     dev:
       type: postgres
-      host: budget-db
+      host: "{{ env_var('POSTGRES_HOST') }}"
       schema: staging
       dbname: "{{ env_var('POSTGRES_DB') }}"
       user:   "{{ env_var('POSTGRES_USER') }}"
