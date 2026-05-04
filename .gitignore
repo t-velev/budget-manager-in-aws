@@ -6,5 +6,5 @@
 *.tfstate.backup
 
 # PYTHON AND ENV
-/__pycache__/
+**/__pycache__/
 .env
