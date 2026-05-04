@@ -4,3 +4,4 @@ sqlalchemy
 psycopg2-binary
 pendulum
 dbt-postgres
+boto3
