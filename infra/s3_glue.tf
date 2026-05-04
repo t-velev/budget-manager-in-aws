@@ -5,6 +5,15 @@ resource "aws_s3_bucket" "data_lake" {
   force_destroy = true # Allows us to delete the bucket later even if it has files in it
 }
 
+# Explicitly Block ALL Public Access
+resource "aws_s3_bucket_public_access_block" "secure_lake" {
+  bucket                  = aws_s3_bucket.data_lake.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # Get current AWS account ID to make the bucket name unique
 data "aws_caller_identity" "current" {}
 
