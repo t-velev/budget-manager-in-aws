@@ -120,7 +120,7 @@ def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[di
                         time.sleep(20)
                         continue  # Try again
                     else:
-                        print(f'Max retries reached. Failing script due to API timeout.')
+                        print('Max retries reached. Failing script due to API timeout.')
                         raise e
                 else:
                     print(f'Fatal API Error: {response.status_code}. Stopping script.')
@@ -134,7 +134,7 @@ def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[di
                     time.sleep(20)
                     continue
                 else:
-                    print(f'Max retries reached for Network Error. Failing script.')
+                    print('Max retries reached for Network Error. Failing script.')
                     raise e       # Crash the script
 
             else:
@@ -332,7 +332,6 @@ def upsert_into_stats(engine, row_count: int, run_id: int, run_date: datetime, d
             else:
                 update_stmt = ( update(stats_table)
                                .where( stats_table.c.run_id    == run_id,
-                                       stats_table.c.run_date  == run_date,
                                        stats_table.c.dag_name  == dag_name,
                                        stats_table.c.task_name == task_name)
                                .values({ stats_table.c[column]: row_count })
