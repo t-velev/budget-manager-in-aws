@@ -16,6 +16,7 @@ category_db_id = os.getenv('NOTION_DB_ID_CATEGORY')
 postgres_db = os.getenv('POSTGRES_DB')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
+db_host = os.getenv('POSTGRES_HOST')
 
 run_date = pendulum.now('Europe/Sofia')
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
@@ -30,7 +31,7 @@ pg_table_name = 'category'
 #######################################################
 
 # Set up connection to the budget-db
-engine = create_engine(f'postgresql://{db_user}:{db_pass}@budget-db:5432/{postgres_db}')
+engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
 # Get the last load date from the database
 last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
