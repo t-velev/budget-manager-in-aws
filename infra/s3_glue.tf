@@ -56,7 +56,7 @@ resource "aws_glue_crawler" "notion_crawler" {
   role          = aws_iam_role.glue_crawler_role.arn
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/"
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/account/"
   }
 }
 
