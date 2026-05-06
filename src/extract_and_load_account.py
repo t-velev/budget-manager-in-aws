@@ -5,7 +5,14 @@
 import os
 import pendulum
 import pandas as pd
-from ntn_utils import get_data, get_last_load_date, load_new_data, del_missing_data, upsert_into_stats
+from ntn_utils import (
+    get_data,
+    get_last_load_date,
+    load_new_data,
+    del_missing_data,
+    upsert_into_stats,
+    upload_to_s3
+)
 from sqlalchemy import create_engine
 
 #######################################################
@@ -17,6 +24,7 @@ postgres_db = os.getenv('POSTGRES_DB')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
 db_host = os.getenv('POSTGRES_HOST')
+s3_bucket = os.getenv('S3_BUCKET_NAME')
 
 run_date = pendulum.now('Europe/Sofia')
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
@@ -63,6 +71,11 @@ for i, item in enumerate(account_new_data):
 
 # Create pandas dataframe
 new_data_df = pd.DataFrame(new_data)
+
+# Upload the new data to S3
+if not new_data_df.empty:
+    s3_file_key = f"raw_notion/account/account_{run_id}.csv"
+    upload_to_s3(new_data_df, s3_bucket, s3_file_key)
 
 # Load the new data and capture the result
 loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)

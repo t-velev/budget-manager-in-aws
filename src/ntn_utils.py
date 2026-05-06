@@ -7,6 +7,8 @@ from sqlalchemy import Table, Column, Integer, String, Date, MetaData, select, i
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import boto3
+from io import StringIO
 
 
 def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[dict]:
@@ -340,4 +342,42 @@ def upsert_into_stats(engine, row_count: int, run_id: int, run_date: datetime, d
 
     except SQLAlchemyError as e:
         print(f'Error: Could not upsert stats for {task_name}. Details: {e}')
+        raise
+
+
+def upload_to_s3(df: pd.DataFrame, bucket_name: str, file_name: str) -> None:
+    """
+    Upload a Pandas DataFrame to an AWS S3 bucket as a CSV file.
+
+    Args:
+        df (pd.DataFrame): The data to upload.
+        bucket_name (str): The name of the S3 bucket.
+        file_name (str): The destination path inside the S3 bucket (e.g., 'raw_notion/account.csv')
+
+    Returns:
+        None
+    """
+    if df.empty:
+        print(f"No data to upload to S3 for {file_name}.")
+        return
+
+    # Convert the Pandas DataFrame into a CSV format in memory (RAM)
+    # With StringIO so we don't have to save a physical file to the local hard drive first.
+    csv_buffer = StringIO()
+    df.to_csv(csv_buffer, index=False)
+
+    # Create an S3 client using boto3
+    # Boto3 automatically finds my AWS credentials
+    s3_client = boto3.client('s3')
+
+    # Upload the in-memory string to S3
+    try:
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=file_name,
+            Body=csv_buffer.getvalue()
+        )
+        print(f"Successfully uploaded to s3://{bucket_name}/{file_name}")
+    except Exception as e:
+        print(f"Error uploading to S3: {e}")
         raise
