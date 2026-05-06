@@ -38,91 +38,105 @@ pg_table_name = 'account'
 ## 3. Load new data
 #######################################################
 
-# Set up connection to the budget-db
-engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
+def lambda_handler(event, context):
 
-# Get the last load date from the database
-last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
+    print("Starting Lambda Execution...")
 
-# A list of notion db columns to be filtered. Empty list filters nothing.
-new_data_filter = ['Name', 'Архивирай']
+    # Set up connection to the budget-db
+    engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
-# Extract ONLY NEW data, no filters
-account_new_data = get_data(account_db_id, last_load_date, filter_cols=new_data_filter)
+    # Get the last load date from the database
+    last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
 
-print(f'Extracted {len(account_new_data)} new rows from Notion.')
+    # A list of notion db columns to be filtered. Empty list filters nothing.
+    new_data_filter = ['Name', 'Архивирай']
 
-# Write the extracted count to sys_etl_stats table
-upsert_into_stats(engine, len(account_new_data), run_id, run_date, dag_name, task_name, column='ntn_extracted')
+    # Extract ONLY NEW data, no filters
+    account_new_data = get_data(account_db_id, last_load_date, filter_cols=new_data_filter)
 
-# Extract and name only the needed columns
-new_data = []
+    print(f'Extracted {len(account_new_data)} new rows from Notion.')
 
-for i, item in enumerate(account_new_data):
-    new_data.append(
-         {
-          'id':                item['id']                                                                                            ,
-          'title':             item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
-          'is_archived':       item['properties']['Архивирай']['checkbox']                                                           ,
-          'created_time':      pendulum.parse(item['created_time'], tz='Europe/Sofia')                                               ,
-          'last_edited_time':  pendulum.parse(item['last_edited_time'], tz='Europe/Sofia')
-          }
-        )
+    # Write the extracted count to sys_etl_stats table
+    upsert_into_stats(engine, len(account_new_data), run_id, run_date, dag_name, task_name, column='ntn_extracted')
 
-# Create pandas dataframe
-new_data_df = pd.DataFrame(new_data)
+    # Extract and name only the needed columns
+    new_data = []
 
-# Upload the new data to S3
-if not new_data_df.empty:
-    s3_file_key = f"raw_notion/account/account_{run_id}.csv"
-    upload_to_s3(new_data_df, s3_bucket, s3_file_key)
+    for i, item in enumerate(account_new_data):
+        new_data.append(
+            {
+            'id':                item['id']                                                                                            ,
+            'title':             item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
+            'is_archived':       item['properties']['Архивирай']['checkbox']                                                           ,
+            'created_time':      pendulum.parse(item['created_time'], tz='Europe/Sofia')                                               ,
+            'last_edited_time':  pendulum.parse(item['last_edited_time'], tz='Europe/Sofia')
+            }
+            )
 
-# Load the new data and capture the result
-loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)
+    # Create pandas dataframe
+    new_data_df = pd.DataFrame(new_data)
 
-print(f'Loaded {loaded_count} rows into {pg_schema}.{pg_table_name}!')
+    # Upload the new data to S3
+    if not new_data_df.empty:
+        s3_file_key = f"raw_notion/account/account_{run_id}.csv"
+        upload_to_s3(new_data_df, s3_bucket, s3_file_key)
 
-# Write the loaded count to sys_etl_stats table
-upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
+    # Load the new data and capture the result
+    loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)
 
-#######################################################
-## 4. Extract and load ids
-#######################################################
+    print(f'Loaded {loaded_count} rows into {pg_schema}.{pg_table_name}!')
 
-# Extracting all the records in the table, but only one column,
-# so we can get the id (it's outside of the properties/columns list).
-# Then we use the the audit list of ids to find and delete the missing rows
-# in the raw schema's tables.
+    # Write the loaded count to sys_etl_stats table
+    upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
 
-id_cols_filter = ['Name']  # A list of notion db column names to be filtered. Empty list filters nothing.
+    #######################################################
+    ## 4. Extract and load ids
+    #######################################################
 
-# Extract ALL data, filtered Name column
-filtered_data = get_data(account_db_id, last_load_date=None, filter_cols=id_cols_filter)
+    # Extracting all the records in the table, but only one column,
+    # so we can get the id (it's outside of the properties/columns list).
+    # Then we use the the audit list of ids to find and delete the missing rows
+    # in the raw schema's tables.
 
-print(f'Extracted {len(filtered_data)} filtered rows from Notion.')
+    id_cols_filter = ['Name']  # A list of notion db column names to be filtered. Empty list filters nothing.
 
-filtered_data_df = []
+    # Extract ALL data, filtered Name column
+    filtered_data = get_data(account_db_id, last_load_date=None, filter_cols=id_cols_filter)
 
-for i, item in enumerate(filtered_data):
-    filtered_data_df.append(
-         {
-          'id':          item['id']                                                                                            ,
-          'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
-          'source_name': pg_table_name
-          }
-        )
+    print(f'Extracted {len(filtered_data)} filtered rows from Notion.')
 
-#######################################################
-## 5. Delete missing data in the source from the target
-#######################################################
+    filtered_data_df = []
 
-# Create pandas dataframe
-filtered_df = pd.DataFrame(filtered_data_df)
+    for i, item in enumerate(filtered_data):
+        filtered_data_df.append(
+            {
+            'id':          item['id']                                                                                            ,
+            'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
+            'source_name': pg_table_name
+            }
+            )
 
-# Call delete function and capture the result
-deleted_count = del_missing_data(pg_schema, pg_table_name, filtered_df, engine)
+    #######################################################
+    ## 5. Delete missing data in the source from the target
+    #######################################################
 
-print(f'Deleted {deleted_count} rows from {pg_schema}.{pg_table_name}!')
+    # Create pandas dataframe
+    filtered_df = pd.DataFrame(filtered_data_df)
 
-# Write the deleted count to sys_etl_stats table
-upsert_into_stats(engine, deleted_count, run_id, run_date, dag_name, task_name, column='raw_deleted')
+    # Call delete function and capture the result
+    deleted_count = del_missing_data(pg_schema, pg_table_name, filtered_df, engine)
+
+    print(f'Deleted {deleted_count} rows from {pg_schema}.{pg_table_name}!')
+
+    # Write the deleted count to sys_etl_stats table
+    upsert_into_stats(engine, deleted_count, run_id, run_date, dag_name, task_name, column='raw_deleted')
+
+    return {
+        'statusCode': 200,
+        'body': 'Account extraction and load completed successfully!'
+    }
+
+
+# So I can still test the script locally
+if __name__ == "__main__":
+    lambda_handler(None, None)
