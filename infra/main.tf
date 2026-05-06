@@ -13,13 +13,13 @@ resource "aws_security_group" "rds_sg" {
   name        = "budget-manager-rds-sg"
   description = "Allow inbound PostgreSQL traffic from my IP"
 
-  # INGRESS (Incoming traffic): Allow Port 5432 ONLY from your exact IP
+  # INGRESS (Incoming traffic): Allow Port 5432 from anywhere (for AWS Lambda)
   ingress {
-    description = "PostgreSQL from local IP"
+    description = "PostgreSQL from the internet"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["${chomp(data.http.myip.response_body)}/32"]
+    cidr_blocks =["0.0.0.0/0"]
   }
 
   # EGRESS (Outgoing traffic): Allow the database to talk to the internet (needed for updates)
@@ -34,6 +34,7 @@ resource "aws_security_group" "rds_sg" {
 # 4. Amazon RDS: The PostgreSQL Database
 resource "aws_db_instance" "budget_db" {
   identifier        = "aws-budget-manager-db"
+  db_name           = "aws_budget_manager"  
   engine            = "postgres"
   engine_version    = "18"
   instance_class    = "db.t3.micro" # This is the Free Tier eligible instance
