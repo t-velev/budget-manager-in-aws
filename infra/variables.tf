@@ -14,6 +14,30 @@ variable "notion_api_key" {
   sensitive = true
 }
 
+variable "notion_db_id_year" {
+  type = string
+}
+
+variable "notion_db_id_month" {
+  type = string
+}
+
+variable "notion_db_id_category" {
+  type = string
+}
+
+variable "notion_db_id_subcategory" {
+  type = string
+}
+
+variable "notion_db_id_budget" {
+  type = string
+}
+
 variable "notion_db_id_account" {
+  type = string
+}
+
+variable "notion_db_id_transaction" {
   type = string
 }

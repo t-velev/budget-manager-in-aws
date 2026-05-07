@@ -5,7 +5,14 @@
 import os
 import pendulum
 import pandas as pd
-from ntn_utils import get_data, get_last_load_date, load_new_data, del_missing_data, upsert_into_stats
+from ntn_utils import (
+    get_data,
+    get_last_load_date,
+    load_new_data,
+    del_missing_data,
+    upsert_into_stats,
+    upload_to_s3
+)
 from sqlalchemy import create_engine
 
 #######################################################
@@ -17,6 +24,7 @@ postgres_db = os.getenv('POSTGRES_DB')
 db_user = os.getenv('POSTGRES_USER')
 db_pass = os.getenv('POSTGRES_PASSWORD')
 db_host = os.getenv('POSTGRES_HOST')
+s3_bucket = os.getenv('S3_BUCKET_NAME')
 
 run_date = pendulum.now('Europe/Sofia')
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
@@ -30,87 +38,106 @@ pg_table_name = 'category'
 ## 3. Load new data
 #######################################################
 
-# Set up connection to the budget-db
-engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
+def lambda_handler(event, context):
 
-# Get the last load date from the database
-last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
+    print("Starting Lambda Execution...")
 
-# A list of notion db columns to be filtered. Empty list filters nothing.
-new_data_filter = ['Name', 'Тип', 'Архивирай']
+    # Set up connection to the budget-db
+    engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
-# Extract ONLY NEW data, no filters
-category_new_data = get_data(category_db_id, last_load_date, filter_cols=new_data_filter)
+    # Get the last load date from the database
+    last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
 
-print(f'Extracted {len(category_new_data)} new rows from Notion.')
+    # A list of notion db columns to be filtered. Empty list filters nothing.
+    new_data_filter = ['Name', 'Тип', 'Архивирай']
 
-# Write the extracted count to sys_etl_stats table
-upsert_into_stats(engine, len(category_new_data), run_id, run_date, dag_name, task_name, column='ntn_extracted')
+    # Extract ONLY NEW data, no filters
+    category_new_data = get_data(category_db_id, last_load_date, filter_cols=new_data_filter)
 
-# Extract and name only the needed columns
-new_data = []
+    print(f'Extracted {len(category_new_data)} new rows from Notion.')
 
-for i, item in enumerate(category_new_data):
-    new_data.append(
-         {
-          'id':                item['id']                                                                                            ,
-          'title':             item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
-          'type':              item['properties']['Тип']['select']['name']          if item['properties']['Тип']['select'] else None ,
-          'is_archived':       item['properties']['Архивирай']['checkbox']                                                           ,
-          'created_time':      item['created_time']                                                                                  ,
-          'last_edited_time':  item['last_edited_time']
-          }
-        )
+    # Write the extracted count to sys_etl_stats table
+    upsert_into_stats(engine, len(category_new_data), run_id, run_date, dag_name, task_name, column='ntn_extracted')
 
-# Create pandas dataframe
-new_data_df = pd.DataFrame(new_data)
+    # Extract and name only the needed columns
+    new_data = []
 
-# Load the new data and capture the result
-loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)
+    for i, item in enumerate(category_new_data):
+        new_data.append(
+            {
+              'id':                item['id']                                                                                            ,
+              'title':             item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
+              'type':              item['properties']['Тип']['select']['name']          if item['properties']['Тип']['select'] else None ,
+              'is_archived':       item['properties']['Архивирай']['checkbox']                                                           ,
+              'created_time':      item['created_time']                                                                                  ,
+              'last_edited_time':  item['last_edited_time']
+              }
+            )
 
-print(f'Loaded {loaded_count} rows into {pg_schema}.{pg_table_name}!')
+    # Create pandas dataframe
+    new_data_df = pd.DataFrame(new_data)
 
-# Write the loaded count to sys_etl_stats table
-upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
+    # Upload the new data to S3
+    if not new_data_df.empty:
+        s3_file_key = f"raw_notion/account/{run_id}_category.csv"
+        upload_to_s3(new_data_df, s3_bucket, s3_file_key)
 
-#######################################################
-## 4. Extract and load ids
-#######################################################
+    # Load the new data and capture the result
+    loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)
 
-# Extracting all the records in the table, but only one column,
-# so we can get the id (it's outside of the properties/columns list).
-# Then we use the the audit list of ids to find and delete the missing rows
-# in the raw schema's tables.
+    print(f'Loaded {loaded_count} rows into {pg_schema}.{pg_table_name}!')
 
-id_cols_filter = ['Name']  # A list of notion db column names to be filtered. Empty list filters nothing.
+    # Write the loaded count to sys_etl_stats table
+    upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
 
-# Extract ALL data, filtered Name column
-filtered_data = get_data(category_db_id, last_load_date=None, filter_cols=id_cols_filter)
+    #######################################################
+    ## 4. Extract and load ids
+    #######################################################
 
-print(f'Extracted {len(filtered_data)} filtered rows from Notion.')
+    # Extracting all the records in the table, but only one column,
+    # so we can get the id (it's outside of the properties/columns list).
+    # Then we use the the audit list of ids to find and delete the missing rows
+    # in the raw schema's tables.
 
-filtered_data_df = []
+    id_cols_filter = ['Name']  # A list of notion db column names to be filtered. Empty list filters nothing.
 
-for i, item in enumerate(filtered_data):
-    filtered_data_df.append(
-         {
-          'id':          item['id']                                                                                            ,
-          'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
-          'source_name': pg_table_name
-          }
-        )
+    # Extract ALL data, filtered Name column
+    filtered_data = get_data(category_db_id, last_load_date=None, filter_cols=id_cols_filter)
 
-#######################################################
-## 5. Delete missing data in the source from the target
-#######################################################
+    print(f'Extracted {len(filtered_data)} filtered rows from Notion.')
 
-# Create pandas dataframe
-filtered_df = pd.DataFrame(filtered_data_df)
+    filtered_data_df = []
 
-# Call delete function and capture the result
-deleted_count = del_missing_data(pg_schema, pg_table_name, filtered_df, engine)
+    for i, item in enumerate(filtered_data):
+        filtered_data_df.append(
+            {
+              'id':          item['id']                                                                                            ,
+              'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
+              'source_name': pg_table_name
+              }
+            )
 
-print(f'Deleted {deleted_count} rows from {pg_schema}.{pg_table_name}!')
+    #######################################################
+    ## 5. Delete missing data in the source from the target
+    #######################################################
 
-# Write the deleted count to sys_etl_stats table
-upsert_into_stats(engine, deleted_count, run_id, run_date, dag_name, task_name, column='raw_deleted')
+    # Create pandas dataframe
+    filtered_df = pd.DataFrame(filtered_data_df)
+
+    # Call delete function and capture the result
+    deleted_count = del_missing_data(pg_schema, pg_table_name, filtered_df, engine)
+
+    print(f'Deleted {deleted_count} rows from {pg_schema}.{pg_table_name}!')
+
+    # Write the deleted count to sys_etl_stats table
+    upsert_into_stats(engine, deleted_count, run_id, run_date, dag_name, task_name, column='raw_deleted')
+
+    return {
+        'statusCode': 200,
+        'body': 'Category extraction and load completed successfully!'
+    }
+
+
+# So I can still test the script locally
+if __name__ == "__main__":
+    lambda_handler(None, None)
