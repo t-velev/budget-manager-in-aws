@@ -28,14 +28,19 @@ resource "aws_iam_role_policy_attachment" "lambda_s3" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-# 3. The AWS Lambda Function
+# 3. The AWS CATEGORY Lambda Function
 resource "aws_lambda_function" "extract_account" {
   function_name = "extract_and_load_account"
   role          = aws_iam_role.lambda_exec_role.arn
 
-  # Tell Lambda to use our Docker Image from ECR!
+  # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:account-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_account.lambda_handler"]
+  }
 
   timeout       = 120 # Give it 2 minutes to run
   memory_size   = 256 # Give Pandas a little extra RAM to work with
@@ -50,6 +55,198 @@ resource "aws_lambda_function" "extract_account" {
       S3_BUCKET_NAME       = aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY       = var.notion_api_key
       NOTION_DB_ID_ACCOUNT = var.notion_db_id_account
+    }
+  }
+}
+
+
+# 4. The AWS CATEGORY Lambda Function
+resource "aws_lambda_function" "extract_category" {
+  function_name = "extract_and_load_category"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_category.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST         = aws_db_instance.budget_db.address
+      POSTGRES_DB           = aws_db_instance.budget_db.db_name
+      POSTGRES_USER         = var.db_username
+      POSTGRES_PASSWORD     = var.db_password
+      S3_BUCKET_NAME        = aws_s3_bucket.data_lake.bucket
+      NOTION_API_KEY        = var.notion_api_key
+      NOTION_DB_ID_CATEGORY = var.notion_db_id_category
+    }
+  }
+}
+
+
+# 5. The AWS SUBCATEGORY Lambda Function
+resource "aws_lambda_function" "extract_subcategory" {
+  function_name = "extract_and_load_subcategory"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_subcategory.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST            = aws_db_instance.budget_db.address
+      POSTGRES_DB              = aws_db_instance.budget_db.db_name
+      POSTGRES_USER            = var.db_username
+      POSTGRES_PASSWORD        = var.db_password
+      S3_BUCKET_NAME           = aws_s3_bucket.data_lake.bucket
+      NOTION_API_KEY           = var.notion_api_key
+      NOTION_DB_ID_SUBCATEGORY = var.notion_db_id_subcategory
+    }
+  }
+}
+
+
+# 6. The AWS YEAR Lambda Function
+resource "aws_lambda_function" "extract_year" {
+  function_name = "extract_and_load_year"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_year.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST     = aws_db_instance.budget_db.address
+      POSTGRES_DB       = aws_db_instance.budget_db.db_name
+      POSTGRES_USER     = var.db_username
+      POSTGRES_PASSWORD = var.db_password
+      S3_BUCKET_NAME    = aws_s3_bucket.data_lake.bucket
+      NOTION_API_KEY    = var.notion_api_key
+      NOTION_DB_ID_YEAR = var.notion_db_id_year
+    }
+  }
+}
+
+
+# 7. The AWS MONTH Lambda Function
+resource "aws_lambda_function" "extract_month" {
+  function_name = "extract_and_load_month"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_month.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST      = aws_db_instance.budget_db.address
+      POSTGRES_DB        = aws_db_instance.budget_db.db_name
+      POSTGRES_USER      = var.db_username
+      POSTGRES_PASSWORD  = var.db_password
+      S3_BUCKET_NAME     = aws_s3_bucket.data_lake.bucket
+      NOTION_API_KEY     = var.notion_api_key
+      NOTION_DB_ID_MONTH = var.notion_db_id_month
+    }
+  }
+}
+
+
+# 8. The AWS BUDGET Lambda Function
+resource "aws_lambda_function" "extract_budget" {
+  function_name = "extract_and_load_budget"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_budget.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST       = aws_db_instance.budget_db.address
+      POSTGRES_DB         = aws_db_instance.budget_db.db_name
+      POSTGRES_USER       = var.db_username
+      POSTGRES_PASSWORD   = var.db_password
+      S3_BUCKET_NAME      = aws_s3_bucket.data_lake.bucket
+      NOTION_API_KEY      = var.notion_api_key
+      NOTION_DB_ID_BUDGET = var.notion_db_id_budget
+    }
+  }
+}
+
+
+# 9. The AWS TRANSACTION Lambda Function
+resource "aws_lambda_function" "extract_transaction" {
+  function_name = "extract_and_load_transaction"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["extract_and_load_transaction.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST            = aws_db_instance.budget_db.address
+      POSTGRES_DB              = aws_db_instance.budget_db.db_name
+      POSTGRES_USER            = var.db_username
+      POSTGRES_PASSWORD        = var.db_password
+      S3_BUCKET_NAME           = aws_s3_bucket.data_lake.bucket
+      NOTION_API_KEY           = var.notion_api_key
+      NOTION_DB_ID_TRANSACTION = var.notion_db_id_transaction
     }
   }
 }
