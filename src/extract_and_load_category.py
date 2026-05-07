@@ -40,11 +40,18 @@ def lambda_handler(event, context):
 
     print("Starting Lambda Execution...")
 
-    # Extract the run_id from the Step Function event payload. 
-    # If it doesn't exist (e.g. manual testing), fallback to a default of 9s.
-    run_id = event.get('run_id', '99999999999999')
-    run_date = pendulum.now('Europe/Sofia')    
-
+    # Grab the raw run_id passed by Step Functions
+    raw_run_id = event.get('run_id', '99999999999999')
+    
+    # If it's an AWS ISO timestamp (contains a 'T'), parse and format it!
+    # Otherwise, assume it's already a formatted number.
+    if isinstance(raw_run_id, str) and 'T' in raw_run_id:
+        run_id = int(pendulum.parse(raw_run_id).in_tz('Europe/Sofia').format('YYYYMMDDHHmmss'))
+    else:
+        run_id = int(raw_run_id)
+        
+    run_date = pendulum.now('Europe/Sofia')
+    
     # Set up connection to the budget-db
     engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
@@ -137,6 +144,7 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 200,
+        'run_id': run_id,
         'body': 'Category extraction and load completed successfully!'
     }
 
