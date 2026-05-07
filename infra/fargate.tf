@@ -63,7 +63,9 @@ resource "aws_ecs_task_definition" "dbt_task" {
       { name = "POSTGRES_HOST", value = aws_db_instance.budget_db.address },
       { name = "POSTGRES_DB", value = aws_db_instance.budget_db.db_name },
       { name = "POSTGRES_USER", value = var.db_username },
-      { name = "POSTGRES_PASSWORD", value = var.db_password }
+      { name = "POSTGRES_PASSWORD", value = var.db_password },
+      { name = "DBT_PROFILES_DIR", value = "/usr/app/dbt/budget_manager" },
+      { name = "DBT_PROJECT_DIR", value = "/usr/app/dbt/budget_manager" }
     ]
 
     # Route the terminal output to CloudWatch
