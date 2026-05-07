@@ -8,8 +8,10 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dbt-postgres directly
-RUN pip install --no-cache-dir dbt-postgres==1.8.0
+# Grab the latest stable dbt-postgres (which includes the macro bug patch)
+# dbt-postgres v1.8.0 shipped with a known bug where the check strategy macro
+# completely ignores snapshot_meta_column_names during incremental runs and hardcodes dbt_scd_id
+RUN pip install --no-cache-dir dbt-postgres
 
 # Set the working directory inside the container
 WORKDIR /usr/app/dbt
