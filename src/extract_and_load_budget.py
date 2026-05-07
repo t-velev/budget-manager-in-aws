@@ -26,10 +26,8 @@ db_pass = os.getenv('POSTGRES_PASSWORD')
 db_host = os.getenv('POSTGRES_HOST')
 s3_bucket = os.getenv('S3_BUCKET_NAME')
 
-run_date = pendulum.now('Europe/Sofia')
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
 task_name = os.getenv('task_name', 'extract_and_load_budget')
-run_id = os.getenv('run_id', 99999999999999)  # 99999999999999 as a backup when run manually through docker
 
 pg_schema = 'raw'
 pg_table_name = 'budget'
@@ -41,6 +39,11 @@ pg_table_name = 'budget'
 def lambda_handler(event, context):
 
     print("Starting Lambda Execution...")
+
+    # Extract the run_id from the Step Function event payload. 
+    # If it doesn't exist (e.g. manual testing), fallback to a default of 9s.
+    run_id = event.get('run_id', '99999999999999')
+    run_date = pendulum.now('Europe/Sofia')    
 
     # Set up connection to the budget-db
     engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
