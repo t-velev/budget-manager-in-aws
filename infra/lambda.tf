@@ -202,7 +202,7 @@ resource "aws_lambda_function" "extract_budget" {
     command = ["extract_and_load_budget.lambda_handler"]
   }
 
-  timeout       = 120 # Give it 2 minutes to run
+  timeout       = 600 # Give it 10 minutes to run
   memory_size   = 256 # Give Pandas a little extra RAM to work with
 
   # Pass Terraform state directly into Lambda Environment Variables
@@ -234,7 +234,7 @@ resource "aws_lambda_function" "extract_transaction" {
     command = ["extract_and_load_transaction.lambda_handler"]
   }
 
-  timeout       = 120 # Give it 2 minutes to run
+  timeout       = 600 # Give it 10 minutes to run
   memory_size   = 256 # Give Pandas a little extra RAM to work with
 
   # Pass Terraform state directly into Lambda Environment Variables
