@@ -1,3 +1,9 @@
+# Fetch the exact SHA256 digest of the latest image in ECR
+data "aws_ecr_image" "lambda_image" {
+  repository_name = aws_ecr_repository.lambda_repo.name
+  image_tag       = "master-latest"
+}
+
 # 1. IAM Role: The "Identity" of the Lambda function
 resource "aws_iam_role" "lambda_exec_role" {
   name = "budget-manager-lambda-role"
@@ -28,14 +34,14 @@ resource "aws_iam_role_policy_attachment" "lambda_s3" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
-# 3. The AWS CATEGORY Lambda Function
+# 3. The AWS ACCOUNT Lambda Function
 resource "aws_lambda_function" "extract_account" {
   function_name = "extract_and_load_account"
   role          = aws_iam_role.lambda_exec_role.arn
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -67,7 +73,7 @@ resource "aws_lambda_function" "extract_category" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -99,7 +105,7 @@ resource "aws_lambda_function" "extract_subcategory" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -131,7 +137,7 @@ resource "aws_lambda_function" "extract_year" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -163,7 +169,7 @@ resource "aws_lambda_function" "extract_month" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -195,7 +201,7 @@ resource "aws_lambda_function" "extract_budget" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -227,7 +233,7 @@ resource "aws_lambda_function" "extract_transaction" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
@@ -258,7 +264,7 @@ resource "aws_lambda_function" "reset_raw_notion_dates" {
 
   # Tell Lambda to use the Docker Image from ECR!
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.lambda_image.image_digest}"
 
   # Override the CMD to tell this specific Lambda which script to run!
   image_config {
