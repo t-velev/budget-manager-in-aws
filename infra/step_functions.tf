@@ -72,10 +72,88 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
             "run_id.$" = "$$.Execution.StartTime" 
           }
         },
+        Next = "ExtractAndLoadCategory"
+      },
+
+      # Task 2: Extract Category
+      ExtractAndLoadCategory = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.extract_category.function_name
+          Payload = {
+            "run_id.$" = "$$.Execution.StartTime" 
+          }
+        },
+        Next = "ExtractAndLoadSubcategory"
+      },
+
+      # Task 3: Extract Subcategory
+      ExtractAndLoadSubcategory = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.extract_subcategory.function_name
+          Payload = {
+            "run_id.$" = "$$.Execution.StartTime" 
+          }
+        },
+        Next = "ExtractAndLoadYear"
+      },
+
+      # Task 4: Extract Year
+      ExtractAndLoadYear = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.extract_year.function_name
+          Payload = {
+            "run_id.$" = "$$.Execution.StartTime" 
+          }
+        },
+        Next = "ExtractAndLoadMonth"
+      },
+
+      # Task 5: Extract Month
+      ExtractAndLoadMonth = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.extract_month.function_name
+          Payload = {
+            "run_id.$" = "$$.Execution.StartTime" 
+          }
+        },
+        Next = "ExtractAndLoadBudget"
+      },
+
+      # Task 6: Extract Budget
+      ExtractAndLoadBudget = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.extract_budget.function_name
+          Payload = {
+            "run_id.$" = "$$.Execution.StartTime" 
+          }
+        },
+        Next = "ExtractAndLoadTransaction"
+      },      
+
+      # Task 7: Extract Transaction
+      ExtractAndLoadTransaction = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.extract_transaction.function_name
+          Payload = {
+            "run_id.$" = "$$.Execution.StartTime" 
+          }
+        },
         # Extract JUST the Payload from Lambda so we can easily grab $.run_id
         OutputPath = "$.Payload",
         Next = "PrepareDbtArgs"
-      },
+      },      
 
       # Task 2: Format the string for dbt
       PrepareDbtArgs = {
