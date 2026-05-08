@@ -58,6 +58,30 @@ resource "aws_glue_crawler" "notion_crawler" {
   s3_target {
     path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/account/"
   }
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/category/"
+  }
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/subcategory/"
+  }
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/year/"
+  }
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/month/"
+  }
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/budget/"
+  }
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/transaction/"
+  }
 }
 
 # Output the bucket name so we can use it in Python
