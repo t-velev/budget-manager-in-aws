@@ -53,7 +53,7 @@ def lambda_handler(event, context):
     else:
         run_id = int(raw_run_id)
         
-    run_date = pendulum.now('Europe/Sofia').naive()  # Strip the timezone offset portion. Otherwise the db offsets it.
+    run_date = pendulum.now('Europe/Sofia')
     
     # Set up connection to the budget-db
     engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
