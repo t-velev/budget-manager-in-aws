@@ -250,3 +250,31 @@ resource "aws_lambda_function" "extract_transaction" {
     }
   }
 }
+
+# 10. The AWS RESET_RAW_NOTION_DATES Lambda Function
+resource "aws_lambda_function" "reset_raw_notion_dates" {
+  function_name = "reset_raw_notion_dates"
+  role          = aws_iam_role.lambda_exec_role.arn
+
+  # Tell Lambda to use the Docker Image from ECR!
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:master-latest"
+
+  # Override the CMD to tell this specific Lambda which script to run!
+  image_config {
+    command = ["reset_raw_notion_dates.lambda_handler"]
+  }
+
+  timeout       = 120 # Give it 2 minutes to run
+  memory_size   = 256 # Give Pandas a little extra RAM to work with
+
+  # Pass Terraform state directly into Lambda Environment Variables
+  environment {
+    variables = {
+      POSTGRES_HOST     = aws_db_instance.budget_db.address
+      POSTGRES_DB       = aws_db_instance.budget_db.db_name
+      POSTGRES_USER     = var.db_username
+      POSTGRES_PASSWORD = var.db_password
+    }
+  }
+}
