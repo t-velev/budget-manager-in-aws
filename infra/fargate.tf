@@ -1,7 +1,7 @@
 # Fetch the exact SHA256 digest of the latest image in ECR
 data "aws_ecr_image" "dbt_image" {
   repository_name = aws_ecr_repository.lambda_repo.name
-  image_tag       = "master-latest"
+  image_tag       = "dbt-latest"
 }
 
 # 1. The ECS Cluster (Logical grouping)
@@ -61,7 +61,6 @@ resource "aws_ecs_task_definition" "dbt_task" {
   # The actual container configuration
   container_definitions = jsonencode([{
     name      = "dbt-container"
-    image     = "${aws_ecr_repository.lambda_repo.repository_url}:dbt-latest"
     image     = "${aws_ecr_repository.lambda_repo.repository_url}@${data.aws_ecr_image.dbt_image.image_digest}"
     essential = true
 
