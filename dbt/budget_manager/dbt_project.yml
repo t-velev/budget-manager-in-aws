@@ -45,7 +45,12 @@ snapshots:
   # +schema: warehouse  # Commented out. I have to use it in each individual snap config, because here it's overwriten by the profiles.yml file.
     +database: "{{ env_var('POSTGRES_DB') }}"
     +strategy: check  # no timestamp strategy because using last_edited_time is risky (can change even when copy pages in Notion)
+
+  # Dynamically choose the column/expression based on the injected variable.
+  # last_edited_time is needed only for the initial load, to set scd2_valid_from = 1990-01-01.
+    +updated_at: "{{ 'last_edited_time' if var('execution_input', {}).get('is_initial_load', false) else 'current_timestamp' }}"
   # +updated_at: last_edited_time  # Needed only for the initial load, to set scd2_valid_from = 1990-01-01.
+
     +snapshot_meta_column_names: { 'dbt_scd_id'     : 'dk'              ,
                                    'dbt_updated_at' : 'scd2_updated_at' ,
                                    'dbt_valid_from' : 'scd2_valid_from' ,

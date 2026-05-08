@@ -69,7 +69,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_account.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         Next = "ExtractAndLoadCategory"
@@ -82,7 +82,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_category.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         Next = "ExtractAndLoadSubcategory"
@@ -95,7 +95,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_subcategory.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         Next = "ExtractAndLoadYear"
@@ -108,7 +108,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_year.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         Next = "ExtractAndLoadMonth"
@@ -121,7 +121,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_month.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         Next = "ExtractAndLoadBudget"
@@ -134,11 +134,11 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_budget.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         Next = "ExtractAndLoadTransaction"
-      },      
+      },
 
       # Task 7: Extract Transaction
       ExtractAndLoadTransaction = {
@@ -147,15 +147,64 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Parameters = {
           FunctionName = aws_lambda_function.extract_transaction.function_name
           Payload = {
-            "run_id.$" = "$$.Execution.StartTime" 
+            "run_id.$" = "$$.Execution.StartTime"
           }
         },
         # Extract JUST the Payload from Lambda so we can easily grab $.run_id
         OutputPath = "$.Payload",
-        Next = "PrepareDbtArgs"
-      },      
+        Next = "MergeDbtVars"
+      },
 
-      # Task 2: Format the string for dbt
+      # Task 8: Bundle the run_id and the Global Execution Input together
+      MergeDbtVars = {
+        Type = "Pass",
+        Parameters = {
+          "run_id.$"          = "$.run_id",
+          "execution_input.$" = "$$.Execution.Input"
+        },
+        Next = "CheckIfInitialLoad"
+      },
+
+      # CHOICE STATE: Should we reset the dates for an initial load?
+      CheckIfInitialLoad = {
+        Type = "Choice",
+        Choices =[
+          {
+            # We use an 'And' block to safely check if the variable even exists first!
+            # If you run {} manually, Step Functions crashes if we don't use IsPresent: true
+            And =[
+              {
+                Variable  = "$.execution_input.is_initial_load",
+                IsPresent = true
+              },
+              {
+                Variable      = "$.execution_input.is_initial_load",
+                BooleanEquals = true
+              }
+            ],
+            Next = "ResetRawNotionDates"
+          }
+        ],
+        # If it's false, or if it doesn't exist, skip the reset and go to dbt!
+        Default = "PrepareDbtArgs"
+      },
+
+      # CONDITIONAL TASK: Reset Raw Dates
+      ResetRawNotionDates = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.reset_raw_notion_dates.function_name
+          Payload      = {}
+        },
+        # CRITICAL: We use ResultPath instead of OutputPath!
+        # This appends the Lambda response to the JSON instead of overwriting it,
+        # preserving your run_id and execution_input so dbt can still use them!
+        ResultPath = "$.reset_result",
+        Next       = "PrepareDbtArgs"
+      },
+
+      # Task 9: Format the string for dbt
       PrepareDbtArgs = {
         Type = "Pass",
         Parameters = {
@@ -165,7 +214,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Next = "RunDbtTransformations"
       },
 
-      # Task 3: Run dbt in Fargate
+      # Task 10: Run dbt in Fargate
       RunDbtTransformations = {
         Type     = "Task",
         Resource = "arn:aws:states:::ecs:runTask.sync",
