@@ -90,7 +90,7 @@ def lambda_handler(event, context):
 
     # Upload the new data to S3
     if not new_data_df.empty:
-        s3_file_key = f"raw_notion/account/{run_id}_year.csv"
+        s3_file_key = f"raw_notion/year/{run_id}_year.csv"
         upload_to_s3(new_data_df, s3_bucket, s3_file_key)
 
     # Load the new data and capture the result
