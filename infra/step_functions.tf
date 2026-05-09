@@ -22,7 +22,16 @@ resource "aws_iam_role_policy" "sfn_execution_policy" {
       {
         Effect   = "Allow"
         Action   = ["lambda:InvokeFunction"]
-        Resource = ["*"]
+        Resource =[
+          aws_lambda_function.extract_account.arn,
+          aws_lambda_function.extract_category.arn,
+          aws_lambda_function.extract_subcategory.arn,
+          aws_lambda_function.extract_year.arn,
+          aws_lambda_function.extract_month.arn,
+          aws_lambda_function.extract_budget.arn,
+          aws_lambda_function.extract_transaction.arn,
+          aws_lambda_function.reset_raw_notion_dates.arn
+        ]
       },
       {
         Effect   = "Allow"
@@ -31,7 +40,11 @@ resource "aws_iam_role_policy" "sfn_execution_policy" {
           "ecs:StopTask",
           "ecs:DescribeTasks"
         ]
-        Resource = ["*"]
+        Resource =[
+          aws_ecs_task_definition.dbt_task.arn,
+          "${aws_ecs_task_definition.dbt_task.arn_without_revision}:*",
+          "arn:aws:ecs:*:*:task/${aws_ecs_cluster.dbt_cluster.name}/*"
+        ]
       },
       {
         # Permissions for .sync
@@ -41,7 +54,9 @@ resource "aws_iam_role_policy" "sfn_execution_policy" {
           "events:PutRule",
           "events:DescribeRule"
         ]
-        Resource = ["*"]
+        Resource =[
+          "arn:aws:events:*:*:rule/StepFunctionsGetEventsForECSTaskRule"
+        ]
       },
       {
         Effect   = "Allow"
