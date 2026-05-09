@@ -32,6 +32,16 @@ This project transitions from a traditional database-only ELT flow to a modern D
 - **Data Cataloging (Glue & Athena):** An AWS Glue Crawler scans the raw CSV files in S3, making the raw "Bronze" layer instantly queryable via standard SQL in Amazon Athena without touching the Postgres database.
 - **Automation (EventBridge):** Acts as a cloud cron job, triggering the Step Function automatically at 2:00 AM local time.
 
+## The End-to-End Data Flow
+- **The Trigger (EventBridge):** At a predefined time, Amazon EventBridge wakes up and pushes the "Start" button on the AWS Step Function, injecting a JSON payload (is_initial_load: false).
+- **The Extraction (Lambda):** The Step Function triggers the Python Docker containers running in AWS Lambda sequentially. The Lambda functions reach out to the Notion API over the public internet and pull the JSON data into a Pandas DataFrame.
+- **The "Double Write" Fork:**
+    - **Path A (The Data Lake):** The Lambda function converts the data to a CSV file named with the unique run_id and uploads it directly to Amazon S3.
+    - **Path B (The Data Warehouse):** The same Lambda function securely connects to the Amazon RDS PostgreSQL database and executes an idempotent DELETE/INSERT into the raw schema.
+- **The Audit (Lambda):** The script pulls a "skinny" payload of IDs from Notion, compares it against the raw schema in RDS, and performs a hard-delete synchronization, logging the row counts to the sys_etl_stats table.
+- **The Transformation (ECS Fargate):** Once all extraction Lambdas finish successfully, the Step Function triggers a serverless Docker container in ECS Fargate. This container boots up, runs dbt build, reads the raw schema, processes the Slowly Changing Dimensions (SCD Type 2), and builds the final Kimball dimensional models in the warehouse schema.
+- **The Catalog (Glue):** Later, an AWS Glue Crawler scans the S3 bucket, automatically detects the schemas of the raw CSV files, and updates the Data Catalog, making the raw data instantly queryable via Amazon Athena.
+
 ## Key Technical Challenges & Learnings
 
 Migrating to the cloud exposed me to real-world DevOps and Cloud Engineering hurdles that you simply don't face on a local machine:
