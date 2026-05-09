@@ -2,6 +2,8 @@
 
 ## Project Objective
 
+This is the "Cloud Evolution" of my personal [Notion Budget Manager portfolio project](https://github.com/t-velev/budget-manager), which was built locally.
+
 Coming from 1.5 years of experience in Data Warehousing, I had already built a robust local ELT pipeline using Docker-Compose, Postgres, dbt, and Airflow.
 
 However, modern Data Engineering needed hands-on experience with cloud platforms, Infrastructure as Code (IaC), and decoupled storage/compute architectures.
