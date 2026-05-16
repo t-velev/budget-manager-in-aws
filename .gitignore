@@ -8,3 +8,6 @@
 # PYTHON AND ENV
 **/__pycache__/
 .env
+
+# MISC
+rebuild_after_destroy_steps.md

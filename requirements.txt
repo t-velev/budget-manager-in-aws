@@ -5,3 +5,4 @@ psycopg2-binary
 pendulum
 dbt-postgres
 boto3
+pre-commit

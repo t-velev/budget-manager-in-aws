@@ -2,7 +2,7 @@
 include .env
 
 REGION = eu-central-1
-ECR_BASE = $(AWS_ACCOUNT).dkr.ecr.$(REGION).amazonaws.com/budget-manager-lambdas
+ECR_BASE = $(AWS_ACCOUNT_ID).dkr.ecr.$(REGION).amazonaws.com/budget-manager-lambdas
 
 deploy-lambda:
 	docker build --provenance=false -t $(ECR_BASE):master-latest -f lambda.Dockerfile .
