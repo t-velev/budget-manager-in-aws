@@ -56,6 +56,6 @@ snapshots:
                                    'dbt_valid_from' : 'scd2_valid_from' ,
                                    'dbt_valid_to'   : 'scd2_valid_to'
                                   }
-    +dbt_valid_to_current: "to_date('9999-12-31', 'YYYY-MM-DD')"
+    +dbt_valid_to_current: "CAST('9999-12-31 00:00:00' AS TIMESTAMP)"
     +hard_deletes: invalidate
 

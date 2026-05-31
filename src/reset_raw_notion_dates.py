@@ -32,14 +32,14 @@ def lambda_handler(event, context):
     try:
         with engine.begin() as conn:
 
-            reset_date = pendulum.datetime(1990, 1, 1, tz='Europe/Sofia')
+            reset_date = pendulum.datetime(1990, 1, 1, tz='UTC')
 
             for table_name in pg_tables:
                 # UPDATE the created_time and last_edited time
                 query = text(f"""
-                    update {pg_schema}.{table_name} 
-                    set 
-                        created_time     = '{reset_date}', 
+                    update {pg_schema}.{table_name}
+                    set
+                        created_time     = '{reset_date}',
                         last_edited_time = '{reset_date}'
                 """)
                 conn.execute(query)

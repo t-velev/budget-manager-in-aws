@@ -53,7 +53,7 @@ def lambda_handler(event, context):
     else:
         run_id = int(raw_run_id)
 
-    run_date = pendulum.now('Europe/Sofia')
+    run_date = pendulum.now('UTC')
 
     # Set up connection to the budget-db
     engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
@@ -92,7 +92,8 @@ def lambda_handler(event, context):
             # 'account_id':        item['properties']['Сметка']['rollup']['array'][0]['relation'][0]['id']     if item['properties']['Сметка']['rollup']['array']     else None ,  # Notion's Lazy API can't fetch all rollup values
               'is_template':       item['properties']['Template']['checkbox']                                                                                                   ,
               'created_time':      item['created_time']                                                                                                                         ,
-              'last_edited_time':  item['last_edited_time']
+              'last_edited_time':  item['last_edited_time']                                                                                                                     ,
+              'load_date':         pendulum.now('UTC')
               }
             )
 

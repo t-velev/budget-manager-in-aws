@@ -63,7 +63,7 @@ def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[di
         if db_id == os.getenv('NOTION_DB_ID_SUBCATEGORY'):
             payload = {'page_size': 25}
         else:
-            payload = {'page_size': 100}      # Notion API request size limit = 100
+            payload = {'page_size': 100}  # Notion API request size limit = 100
 
         # Empty list to hold filters
         filter_list = []
@@ -71,9 +71,7 @@ def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[di
         # Add incremental filter if it exists
         if last_load_date:
 
-            last_load_date_local = last_load_date.replace(tzinfo=ZoneInfo("Europe/Sofia"))    # Add local timezone
-            last_load_date_utc = last_load_date_local.astimezone(ZoneInfo("UTC"))             # Convert to UTC
-            last_load_date_tz = last_load_date_utc.isoformat()                                # Convert to string so it can be used in the json payload
+            last_load_date_tz = last_load_date.isoformat()  # Convert to string so it can be used in the json payload
 
             filter_list.append({'timestamp': 'last_edited_time',
                                 'last_edited_time': {'after': last_load_date_tz}
@@ -186,7 +184,7 @@ def get_last_load_date(schema_name: str, table_name: str, engine) -> datetime:
     if last_load_date is None:
         print(f'No previous loads found in {table_name}.{schema_name}. Preparing for full load.')
     else:
-        print(f'Last load date = {last_load_date}. Preparing for incremental load.')
+        print(f'Last load date = {last_load_date} UTC. Preparing for incremental load.')
 
     return last_load_date
 

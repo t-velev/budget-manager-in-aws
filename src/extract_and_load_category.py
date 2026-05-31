@@ -43,18 +43,18 @@ def lambda_handler(event, context):
     # Grab the raw run_id passed by Step Functions
     if __name__ == "__main__":
         raw_run_id = '99999999999999'
-    else:    
+    else:
         raw_run_id = event.get('run_id', '99999999999999')
-    
+
     # If it's an AWS ISO timestamp (contains a 'T'), parse and format it!
     # Otherwise, assume it's already a formatted number.
     if isinstance(raw_run_id, str) and 'T' in raw_run_id:
         run_id = int(pendulum.parse(raw_run_id).in_tz('Europe/Sofia').format('YYYYMMDDHHmmss'))
     else:
         run_id = int(raw_run_id)
-        
-    run_date = pendulum.now('Europe/Sofia')
-    
+
+    run_date = pendulum.now('UTC')
+
     # Set up connection to the budget-db
     engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
@@ -83,7 +83,8 @@ def lambda_handler(event, context):
               'type':              item['properties']['Тип']['select']['name']          if item['properties']['Тип']['select'] else None ,
               'is_archived':       item['properties']['Архивирай']['checkbox']                                                           ,
               'created_time':      item['created_time']                                                                                  ,
-              'last_edited_time':  item['last_edited_time']
+              'last_edited_time':  item['last_edited_time']                                                                              ,
+              'load_date':         pendulum.now('UTC')
               }
             )
 
