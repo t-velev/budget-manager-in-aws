@@ -180,7 +180,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Next = "CheckIfInitialLoad"
       },
 
-      # CHOICE STATE: Should we reset the dates for an initial load?
+# CHOICE STATE: Should we reset the dates for an initial load?
       CheckIfInitialLoad = {
         Type = "Choice",
         Choices =[
@@ -200,8 +200,8 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
             Next = "ResetRawNotionDates"
           }
         ],
-        # If it's false, or if it doesn't exist, skip the reset and go to dbt!
-        Default = "PrepareDbtArgs"
+        # If it's false, or if it doesn't exist, skip the reset and go to stringify the vars!
+        Default = "StringifyDbtVars"
       },
 
       # CONDITIONAL TASK: Reset Raw Dates
@@ -216,20 +216,54 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         # This appends the Lambda response to the JSON instead of overwriting it,
         # preserving your run_id and execution_input so dbt can still use them!
         ResultPath = "$.reset_result",
-        Next       = "PrepareDbtArgs"
+        Next       = "StringifyDbtVars"
       },
 
-      # Task 9: Format the string for dbt
-      PrepareDbtArgs = {
+      # Task 9: Stringify the payload (but preserve the state so we can check it again)
+      StringifyDbtVars = {
         Type = "Pass",
+        ResultPath = "$.dbt_vars_output",
         Parameters = {
           # This builds the exact JSON string dbt wants: {"run_id": 20260507163428}
-          "dbt_vars.$" = "States.JsonToString($)"
+          "stringified.$" = "States.JsonToString($)"
+        },
+        Next = "CheckSeedRequirement"
+      },
+
+      # CHOICE STATE 2: Do we need to exclude seeds?
+      CheckSeedRequirement = {
+        Type = "Choice",
+        Choices =[
+          {
+            And =[
+              { Variable = "$.execution_input.is_initial_load", IsPresent = true },
+              { Variable = "$.execution_input.is_initial_load", BooleanEquals = true }
+            ],
+            Next = "BuildCommandInitial"
+          }
+        ],
+        Default = "BuildCommandIncremental"
+      },
+
+      # Task 10A: Array WITHOUT exclude (Initial Load)
+      BuildCommandInitial = {
+        Type = "Pass",
+        Parameters = {
+          "Command.$" = "States.Array('dbt', 'build', '--project-dir', '/usr/app/dbt/budget_manager', '--profiles-dir', '/usr/app/dbt/budget_manager', '--vars', $.dbt_vars_output.stringified)"
         },
         Next = "RunDbtTransformations"
       },
 
-      # Task 10: Run dbt in Fargate
+      # Task 10B: Array WITH exclude (Incremental Load)
+      BuildCommandIncremental = {
+        Type = "Pass",
+        Parameters = {
+          "Command.$" = "States.Array('dbt', 'build', '--project-dir', '/usr/app/dbt/budget_manager', '--profiles-dir', '/usr/app/dbt/budget_manager', '--exclude', 'resource_type:seed', '--vars', $.dbt_vars_output.stringified)"
+        },
+        Next = "RunDbtTransformations"
+      },
+
+      # Task 11: Run dbt in Fargate
       RunDbtTransformations = {
         Type     = "Task",
         Resource = "arn:aws:states:::ecs:runTask.sync",
@@ -246,8 +280,8 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           Overrides = {
             ContainerOverrides =[{
               Name = "dbt-container"
-              # Dynamically build the Command Array using States.Array!
-              "Command.$" = "States.Array('dbt', 'build', '--project-dir', '/usr/app/dbt/budget_manager', '--profiles-dir', '/usr/app/dbt/budget_manager', '--exclude', 'resource_type:seed', '--vars', $.dbt_vars)"
+              # Magic Trick: Inject the dynamically built Command Array from Task 10A or 10B!
+              "Command.$" = "$.Command"
             }]
           }
         },
