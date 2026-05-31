@@ -43,18 +43,18 @@ def lambda_handler(event, context):
     # Grab the raw run_id passed by Step Functions
     if __name__ == "__main__":
         raw_run_id = '99999999999999'
-    else:    
+    else:
         raw_run_id = event.get('run_id', '99999999999999')
-    
+
     # If it's an AWS ISO timestamp (contains a 'T'), parse and format it!
     # Otherwise, assume it's already a formatted number.
     if isinstance(raw_run_id, str) and 'T' in raw_run_id:
         run_id = int(pendulum.parse(raw_run_id).in_tz('Europe/Sofia').format('YYYYMMDDHHmmss'))
     else:
         run_id = int(raw_run_id)
-        
+
     run_date = pendulum.now('Europe/Sofia')
-    
+
     # Set up connection to the budget-db
     engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
@@ -101,7 +101,7 @@ def lambda_handler(event, context):
 
     # Upload the new data to S3
     if not new_data_df.empty:
-        s3_file_key = f"raw_notion/transacton/{run_id}_transaction.csv"
+        s3_file_key = f"raw_notion/transaction/{run_id}_transaction.csv"
         upload_to_s3(new_data_df, s3_bucket, s3_file_key)
 
     # Load the new data and capture the result
@@ -156,7 +156,7 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 200,
-        'run_id': run_id,        
+        'run_id': run_id,
         'body': 'Transaction extraction and load completed successfully!'
     }
 
