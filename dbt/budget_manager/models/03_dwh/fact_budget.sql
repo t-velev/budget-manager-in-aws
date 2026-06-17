@@ -108,8 +108,8 @@ from   BUDGET t
                                               )
 
        LEFT join SUBCATEGORY /* with */ s on ( s.subcategory_id_bk  = t.subcategory_id  and
-                                               c.scd2_valid_from   <= t.period_end      and
-                                               c.scd2_valid_to      > t.period_end
+                                               s.scd2_valid_from   <= t.period_end      and
+                                               s.scd2_valid_to      > t.period_end
                                               )
 
        LEFT join YEAR        /* with */ y on ( y.year_id_bk         = t.year_id         and
