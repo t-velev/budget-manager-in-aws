@@ -3,10 +3,10 @@ import json
 import os
 import time
 import pandas as pd
-from sqlalchemy import Table, Column, Integer, String, Date, MetaData, select, insert, update, text
+from sqlalchemy import Table, Column, Integer, String, Date, MetaData, select, insert, update, text, create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
-from zoneinfo import ZoneInfo
+import pendulum
 import boto3
 from io import StringIO
 
@@ -379,3 +379,148 @@ def upload_to_s3(df: pd.DataFrame, bucket_name: str, file_name: str) -> None:
     except Exception as e:
         print(f"Error uploading to S3: {e}")
         raise
+
+
+
+def create_db_engine():
+    """
+    Creates and returns a SQLAlchemy engine connected to the PostgreSQL data warehouse.
+
+    Retrieves database connection credentials securely from loaded environment variables
+    (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST).
+
+    Returns:
+        sqlalchemy.engine.Engine: The database connection engine object.
+    """
+
+    postgres_db = os.getenv('POSTGRES_DB')
+    db_user = os.getenv('POSTGRES_USER')
+    db_pass = os.getenv('POSTGRES_PASSWORD')
+    db_host = os.getenv('POSTGRES_HOST')
+
+    engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
+
+    return engine
+
+
+def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, task_name, map_all_data, map_filtered_data, new_data_filter, id_cols_filter):
+    """
+    Orchestrates the end-to-end extraction and load process for a single Notion database.
+
+    This function acts as the central 'Hub', executing the extraction, mapping, S3 Data Lake upload,
+    PostgreSQL raw insertion, and the hard-delete audit synchronization. It relies on injected
+    mapping functions and filters to remain completely agnostic to the specific table being processed.
+
+    Args:
+        event (dict): The AWS Step Functions event payload (used to extract the unified run_id).
+        pg_table_name (str): The name of the target PostgreSQL table (e.g., 'account').
+        ntn_table_id (str): The Notion API database ID.
+        dag_name (str): The name of the orchestrating DAG/State Machine for system logging.
+        task_name (str): The name of the specific execution task for system logging.
+        map_all_data (callable): A function that takes a raw Notion JSON item and returns a flattened dictionary.
+        map_filtered_data (callable): A function that parses a Notion JSON item for the ID audit table.
+        new_data_filter (list): List of column names to filter during the primary incremental extraction.
+        id_cols_filter (list): List of column names to filter during the secondary ID audit extraction.
+
+    Returns:
+        dict: A payload containing the HTTP status code, run_id, and a success message.
+    """
+
+    #######################################################
+    ## 1. Load new data
+    #######################################################
+
+    s3_bucket = os.getenv('S3_BUCKET_NAME')
+    pg_schema = 'raw'
+
+    # Grab the raw run_id passed by Step Functions
+    if not event:
+        raw_run_id = '99999999999999'
+    else:
+        raw_run_id = event.get('run_id', '99999999999999')
+
+    # If it's an AWS ISO timestamp (contains a 'T'), parse and format it!
+    # Otherwise, assume it's already a formatted number.
+    if isinstance(raw_run_id, str) and 'T' in raw_run_id:
+        run_id = int(pendulum.parse(raw_run_id).in_tz('Europe/Sofia').format('YYYYMMDDHHmmss'))
+    else:
+        run_id = int(raw_run_id)
+
+    run_date = pendulum.now('UTC')
+
+    # Set up connection to the budget-db
+    engine = create_db_engine()
+
+    # Get the last load date from the database
+    last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
+
+    # Extract ONLY NEW data, no filters
+    new_data = get_data(ntn_table_id, last_load_date, filter_cols=new_data_filter)
+
+    print(f'Extracted {len(new_data)} new rows from Notion.')
+
+    # Write the extracted count to sys_etl_stats table
+    upsert_into_stats(engine, len(new_data), run_id, run_date, dag_name, task_name, column='ntn_extracted')
+
+    # Extract and name only the needed columns
+    new_data_list = []
+
+    for i, item in enumerate(new_data):
+        new_data_list.append(map_all_data(item))
+
+
+   # Create pandas dataframe
+    new_data_df = pd.DataFrame(new_data_list)
+
+    # Upload the new data to S3
+    if not new_data_df.empty:
+        s3_file_key = f"raw_notion/{pg_table_name}/{run_id}_{pg_table_name}.csv"
+        upload_to_s3(new_data_df, s3_bucket, s3_file_key)
+
+    # Load the new data and capture the result
+    loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)
+
+    print(f'Loaded {loaded_count} rows into {pg_schema}.{pg_table_name}!')
+
+    # Write the loaded count to sys_etl_stats table
+    upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
+
+    #######################################################
+    ## 2. Extract and load ids
+    #######################################################
+
+    # Extracting all the records in the table, but only one column,
+    # so we can get the id (it's outside of the properties/columns list).
+    # Then we use the the audit list of ids to find and delete the missing rows
+    # in the raw schema's tables.
+
+    # Extract ALL data, filtered Name column
+    filtered_data = get_data(ntn_table_id, last_load_date=None, filter_cols=id_cols_filter)
+
+    print(f'Extracted {len(filtered_data)} filtered rows from Notion.')
+
+    filtered_data_df = []
+
+    for i, item in enumerate(filtered_data):
+        filtered_data_df.append(map_filtered_data(item))
+
+    #######################################################
+    ## 3. Delete missing data in the source from the target
+    #######################################################
+
+    # Create pandas dataframe
+    filtered_df = pd.DataFrame(filtered_data_df)
+
+    # Call delete function and capture the result
+    deleted_count = del_missing_data(pg_schema, pg_table_name, filtered_df, engine)
+
+    print(f'Deleted {deleted_count} rows from {pg_schema}.{pg_table_name}!')
+
+    # Write the deleted count to sys_etl_stats table
+    upsert_into_stats(engine, deleted_count, run_id, run_date, dag_name, task_name, column='raw_deleted')
+
+    return {
+            'statusCode': 200,
+            'run_id': run_id,
+            'body': f'{pg_table_name} extraction and load completed successfully!'
+        }
