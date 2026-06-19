@@ -10,12 +10,11 @@ from ntn_utils import run_full_extraction_pipeline
 ## 2. Set initial vars
 #######################################################
 
+pg_table_name = 'account'
 account_db_id = os.getenv('NOTION_DB_ID_ACCOUNT')
 
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
 task_name = os.getenv('task_name', 'extract_and_load_account')
-
-pg_table_name = 'account'
 
 #######################################################
 ## 3. Execute lambda function

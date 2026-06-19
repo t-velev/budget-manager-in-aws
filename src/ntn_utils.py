@@ -1,15 +1,13 @@
 import requests
-import json
 import os
 import time
-import pandas as pd
-from sqlalchemy import Table, Column, Integer, String, Date, MetaData, select, insert, update, text, create_engine
-from sqlalchemy.exc import SQLAlchemyError
-from datetime import datetime
-import pendulum
 import boto3
+import pendulum
+import pandas as pd
 from io import StringIO
-
+from datetime import datetime
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import Table, Column, Integer, String, Date, MetaData, select, insert, update, text, create_engine
 
 def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[dict]:
     """
@@ -355,6 +353,7 @@ def upload_to_s3(df: pd.DataFrame, bucket_name: str, file_name: str) -> None:
     Returns:
         None
     """
+
     if df.empty:
         print(f"No data to upload to S3 for {file_name}.")
         return
@@ -381,7 +380,6 @@ def upload_to_s3(df: pd.DataFrame, bucket_name: str, file_name: str) -> None:
         raise
 
 
-
 def create_db_engine():
     """
     Creates and returns a SQLAlchemy engine connected to the PostgreSQL data warehouse.
@@ -403,7 +401,17 @@ def create_db_engine():
     return engine
 
 
-def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, task_name, map_all_data, map_filtered_data, new_data_filter, id_cols_filter):
+def run_full_extraction_pipeline(
+    event,
+    pg_table_name,
+    ntn_table_id,
+    dag_name,
+    task_name,
+    map_all_data,
+    map_filtered_data,
+    new_data_filter,
+    id_cols_filter,
+):
     """
     Orchestrates the end-to-end extraction and load process for a single Notion database.
 
@@ -427,7 +435,7 @@ def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, t
     """
 
     #######################################################
-    ## 1. Load new data
+    ## 1. Set vars
     #######################################################
 
     s3_bucket = os.getenv('S3_BUCKET_NAME')
@@ -447,6 +455,10 @@ def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, t
         run_id = int(raw_run_id)
 
     run_date = pendulum.now('UTC')
+
+    #######################################################
+    ## 2. Load new data
+    #######################################################
 
     # Set up connection to the budget-db
     engine = create_db_engine()
@@ -468,8 +480,7 @@ def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, t
     for i, item in enumerate(new_data):
         new_data_list.append(map_all_data(item))
 
-
-   # Create pandas dataframe
+    # Create pandas dataframe
     new_data_df = pd.DataFrame(new_data_list)
 
     # Upload the new data to S3
@@ -486,12 +497,12 @@ def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, t
     upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
 
     #######################################################
-    ## 2. Extract and load ids
+    ## 3. Extract and load IDs
     #######################################################
 
     # Extracting all the records in the table, but only one column,
     # so we can get the id (it's outside of the properties/columns list).
-    # Then we use the the audit list of ids to find and delete the missing rows
+    # Then we use the the audit list of IDs to find and delete the missing rows
     # in the raw schema's tables.
 
     # Extract ALL data, filtered Name column
@@ -505,7 +516,7 @@ def run_full_extraction_pipeline(event, pg_table_name, ntn_table_id, dag_name, t
         filtered_data_df.append(map_filtered_data(item))
 
     #######################################################
-    ## 3. Delete missing data in the source from the target
+    ## 4. Delete missing data in the source from the target
     #######################################################
 
     # Create pandas dataframe
