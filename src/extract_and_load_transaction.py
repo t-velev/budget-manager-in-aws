@@ -4,163 +4,93 @@
 
 import os
 import pendulum
-import pandas as pd
-from ntn_utils import (
-    get_data,
-    get_last_load_date,
-    load_new_data,
-    del_missing_data,
-    upsert_into_stats,
-    upload_to_s3
-)
-from sqlalchemy import create_engine
+from ntn_utils import run_full_extraction_pipeline
 
 #######################################################
 ## 2. Set initial vars
 #######################################################
 
+pg_table_name = 'transaction'
 transaction_db_id = os.getenv('NOTION_DB_ID_TRANSACTION')
-postgres_db = os.getenv('POSTGRES_DB')
-db_user = os.getenv('POSTGRES_USER')
-db_pass = os.getenv('POSTGRES_PASSWORD')
-db_host = os.getenv('POSTGRES_HOST')
-s3_bucket = os.getenv('S3_BUCKET_NAME')
 
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
 task_name = os.getenv('task_name', 'extract_and_load_transaction')
 
-pg_schema = 'raw'
-pg_table_name = 'transaction'
-
 #######################################################
-## 3. Load new data
+## 3. Execute lambda function
 #######################################################
 
 def lambda_handler(event, context):
 
     print("Starting Lambda Execution...")
 
-    # Grab the raw run_id passed by Step Functions
-    if __name__ == "__main__":
-        raw_run_id = '99999999999999'
-    else:
-        raw_run_id = event.get('run_id', '99999999999999')
+    def map_all_data(item):
+        """
+        Parses a single raw JSON record from the Notion API into a flattened dictionary.
 
-    # If it's an AWS ISO timestamp (contains a 'T'), parse and format it!
-    # Otherwise, assume it's already a formatted number.
-    if isinstance(raw_run_id, str) and 'T' in raw_run_id:
-        run_id = int(pendulum.parse(raw_run_id).in_tz('Europe/Sofia').format('YYYYMMDDHHmmss'))
-    else:
-        run_id = int(raw_run_id)
+        Extracts specific properties (e.g., id, title, timestamps) and dynamically appends
+        a current UTC 'load_date' evaluated at the exact moment of loop execution.
 
-    run_date = pendulum.now('UTC')
+        Args:
+            item (dict): A single record (row) payload returned by the Notion API.
 
-    # Set up connection to the budget-db
-    engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
+        Returns:
+            dict: A flattened dictionary perfectly mapped to the target raw database schema.
+        """
 
-    # Get the last load date from the database
-    last_load_date = get_last_load_date(pg_schema, pg_table_name, engine)
+        all_data_mapping = {
+            'id':                item['id']                                                                                                                                   ,
+            'title':             item['properties']['Name']['title'][0]['plain_text']                        if item['properties']['Name']['title']                 else None ,
+            'type':              item['properties']['Тип']['select']['name']                                                                                                  ,
+            'date':              item['properties']['Дата']['date']['start']                                 if item['properties']['Дата']['date']                  else None ,
+            'amount':            item['properties']['Сума']['number']                                                                                                         ,
+            'status':            item['properties']['Статус']['select']['name']                              if item['properties']['Статус']                        else None ,
+            'note':              item['properties']['Бележка']['rich_text'][0]['plain_text']                 if item['properties']['Бележка']['rich_text']          else None ,
+            'year_id':           item['properties']['Година']['relation'][0]['id']                           if item['properties']['Година']['relation']            else None ,
+            'month_id':          item['properties']['Месец']['relation'][0]['id']                            if item['properties']['Месец']['relation']             else None ,
+          # 'category_id':       item['properties']['Категория']['rollup']['array'][0]['relation'][0]['id']  if item['properties']['Категория']['rollup']['array']  else None ,  # Notion's Lazy API can't fetch all rollup values
+            'subcategory_id':    item['properties']['Подкатегория']['relation'][0]['id']                     if item['properties']['Подкатегория']['relation']      else None ,
+          # 'account_id':        item['properties']['Сметка']['rollup']['array'][0]['relation'][0]['id']     if item['properties']['Сметка']['rollup']['array']     else None ,  # Notion's Lazy API can't fetch all rollup values
+            'is_template':       item['properties']['Template']['checkbox']                                                                                                   ,
+            'created_time':      item['created_time']                                                                                                                         ,
+            'last_edited_time':  item['last_edited_time']                                                                                                                     ,
+            'load_date':         pendulum.now('UTC')
+            }
+
+        return all_data_mapping
+
+    def map_filtered_data(item):
+        """
+        Parses a 'skinny' JSON record from the Notion API for the hard-delete audit process.
+
+        Extracts only the essential fields (id, title) required to verify which
+        records currently exist in the source system without pulling heavy payloads.
+
+        Args:
+            item (dict): A single record (row) payload returned by the Notion API.
+
+        Returns:
+            dict: A flattened dictionary mapped for the notion_ids_audit table.
+        """
+
+        filtered_data_mapping = {
+            'id':          item['id']                                                                                            ,
+            'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
+            'source_name': pg_table_name
+            }
+
+        return filtered_data_mapping
 
     # A list of notion db columns to be filtered. Empty list filters nothing.
     new_data_filter = ['Name', 'Тип', 'Дата', 'Сума', 'Статус', 'Бележка', 'Година', 'Месец', 'Подкатегория', 'Template']
 
-    # Extract ONLY NEW data, no filters
-    transaction_new_data = get_data(transaction_db_id, last_load_date, filter_cols=new_data_filter)
+    # A list of notion db column names to be filtered. Empty list filters nothing.
+    id_cols_filter = ['Name']
 
-    print(f'Extracted {len(transaction_new_data)} new rows from Notion.')
+    # Call the main extract function in ntn_utils.py
+    status = run_full_extraction_pipeline(event, pg_table_name, transaction_db_id, dag_name, task_name, map_all_data, map_filtered_data, new_data_filter, id_cols_filter)
 
-    # Write the extracted count to sys_etl_stats table
-    upsert_into_stats(engine, len(transaction_new_data), run_id, run_date, dag_name, task_name, column='ntn_extracted')
-
-    # Extract and name only the needed columns
-    new_data = []
-
-    for i, item in enumerate(transaction_new_data):
-        new_data.append(
-            {
-              'id':                item['id']                                                                                                                                   ,
-              'title':             item['properties']['Name']['title'][0]['plain_text']                        if item['properties']['Name']['title']                 else None ,
-              'type':              item['properties']['Тип']['select']['name']                                                                                                  ,
-              'date':              item['properties']['Дата']['date']['start']                                 if item['properties']['Дата']['date']                  else None ,
-              'amount':            item['properties']['Сума']['number']                                                                                                         ,
-              'status':            item['properties']['Статус']['select']['name']                              if item['properties']['Статус']                        else None ,
-              'note':              item['properties']['Бележка']['rich_text'][0]['plain_text']                 if item['properties']['Бележка']['rich_text']          else None ,
-              'year_id':           item['properties']['Година']['relation'][0]['id']                           if item['properties']['Година']['relation']            else None ,
-              'month_id':          item['properties']['Месец']['relation'][0]['id']                            if item['properties']['Месец']['relation']             else None ,
-            # 'category_id':       item['properties']['Категория']['rollup']['array'][0]['relation'][0]['id']  if item['properties']['Категория']['rollup']['array']  else None ,  # Notion's Lazy API can't fetch all rollup values
-              'subcategory_id':    item['properties']['Подкатегория']['relation'][0]['id']                     if item['properties']['Подкатегория']['relation']      else None ,
-            # 'account_id':        item['properties']['Сметка']['rollup']['array'][0]['relation'][0]['id']     if item['properties']['Сметка']['rollup']['array']     else None ,  # Notion's Lazy API can't fetch all rollup values
-              'is_template':       item['properties']['Template']['checkbox']                                                                                                   ,
-              'created_time':      item['created_time']                                                                                                                         ,
-              'last_edited_time':  item['last_edited_time']                                                                                                                     ,
-              'load_date':         pendulum.now('UTC')
-              }
-            )
-
-    # Create pandas dataframe
-    new_data_df = pd.DataFrame(new_data)
-
-    # Upload the new data to S3
-    if not new_data_df.empty:
-        s3_file_key = f"raw_notion/transaction/{run_id}_transaction.csv"
-        upload_to_s3(new_data_df, s3_bucket, s3_file_key)
-
-    # Load the new data and capture the result
-    loaded_count = load_new_data(pg_schema, pg_table_name, new_data_df, engine)
-
-    print(f'Loaded {loaded_count} rows into {pg_schema}.{pg_table_name}!')
-
-    # Write the loaded count to sys_etl_stats table
-    upsert_into_stats(engine, loaded_count, run_id, run_date, dag_name, task_name, column='raw_loaded')
-
-    #######################################################
-    ## 4. Extract and load ids
-    #######################################################
-
-    # Extracting all the records in the table, but only one column,
-    # so we can get the id (it's outside of the properties/columns list).
-    # Then we use the the audit list of ids to find and delete the missing rows
-    # in the raw schema's tables.
-
-    id_cols_filter = ['Name']  # A list of notion db column names to be filtered. Empty list filters nothing.
-
-    # Extract ALL data, filtered Name column
-    filtered_data = get_data(transaction_db_id, last_load_date=None, filter_cols=id_cols_filter)
-
-    print(f'Extracted {len(filtered_data)} filtered rows from Notion.')
-
-    filtered_data_df = []
-
-    for i, item in enumerate(filtered_data):
-        filtered_data_df.append(
-            {
-              'id':          item['id']                                                                                            ,
-              'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
-              'source_name': pg_table_name
-              }
-            )
-
-    #######################################################
-    ## 5. Delete missing data in the source from the target
-    #######################################################
-
-    # Create pandas dataframe
-    filtered_df = pd.DataFrame(filtered_data_df)
-
-    # Call delete function and capture the result
-    deleted_count = del_missing_data(pg_schema, pg_table_name, filtered_df, engine)
-
-    print(f'Deleted {deleted_count} rows from {pg_schema}.{pg_table_name}!')
-
-    # Write the deleted count to sys_etl_stats table
-    upsert_into_stats(engine, deleted_count, run_id, run_date, dag_name, task_name, column='raw_deleted')
-
-    return {
-        'statusCode': 200,
-        'run_id': run_id,
-        'body': 'Transaction extraction and load completed successfully!'
-    }
-
+    return status
 
 # So I can still test the script locally
 if __name__ == "__main__":
