@@ -6,3 +6,5 @@ pendulum
 dbt-postgres
 boto3
 pre-commit
+pytest
+pytest-mock
