@@ -3,7 +3,8 @@ import pytest
 import src.extract_and_load_account as extract_and_load_account
 
 
-def test_map_all_data():
+@pytest.fixture
+def mock_notion_json():
 
     json_item = {
         "object": "page",
@@ -45,7 +46,12 @@ def test_map_all_data():
         "public_url": "null",
     }
 
-    result = extract_and_load_account.map_all_data(json_item)
+    return json_item
+
+
+def test_map_all_data(mock_notion_json):
+
+    result = extract_and_load_account.map_all_data(mock_notion_json)
 
     # Pull the load_date out of the result
     actual_load_date = result.pop("load_date")
@@ -60,4 +66,15 @@ def test_map_all_data():
         "is_archived": False,
         "created_time": "2023-03-01T15:37:00.000Z",
         "last_edited_time": "2023-03-01T15:37:00.000Z",
+    }
+
+
+def test_map_filtered_data(mock_notion_json):
+
+    result = extract_and_load_account.map_filtered_data(mock_notion_json)
+
+    assert result == {
+        "id": "mock_id_abcdef123456",
+        "title": "Кеш",
+        "source_name": "account"
     }
