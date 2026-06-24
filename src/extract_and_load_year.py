@@ -61,7 +61,7 @@ def map_filtered_data(item):
 
     filtered_data_mapping = {
         'id':          item['id']                                                                                            ,
-        'title':       item['properties']['Name']['title'][0]['plain_text'] if item['properties']['Name']['title'] else None ,
+        'title':       item['properties']['Име']['title'][0]['plain_text'] if item['properties']['Име']['title'] else None ,
         'source_name': pg_table_name
         }
 
@@ -73,7 +73,7 @@ def lambda_handler(event, context):
     print("Starting Lambda Execution...")
 
     # A list of notion db columns to be filtered. Empty list filters nothing.
-    new_data_filter = ['Name', 'Архивирай']
+    new_data_filter = ['Име']
 
     # A list of notion db column names to be filtered. Empty list filters nothing.
     id_cols_filter = ['Име']
