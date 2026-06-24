@@ -4,7 +4,7 @@
 
 import os
 import pendulum
-from ntn_utils import run_full_extraction_pipeline
+from src.ntn_utils import run_full_extraction_pipeline
 
 #######################################################
 ## 2. Set initial vars
@@ -45,7 +45,7 @@ def lambda_handler(event, context):
             'budget_amount':     item['properties']['Бюджет']['number']                                                                                                       ,
             'year_id':           item['properties']['Година']['relation'][0]['id']                           if item['properties']['Година']['relation']            else None ,
             'month_id':          item['properties']['Месец']['relation'][0]['id']                            if item['properties']['Месец']['relation']             else None ,
-        # 'category_id':       item['properties']['Категория']['rollup']['array'][0]['relation'][0]['id']  if item['properties']['Категория']['rollup']['array']  else None ,  # Notion's Lazy API can't fetch all rollup values
+          # 'category_id':       item['properties']['Категория']['rollup']['array'][0]['relation'][0]['id']  if item['properties']['Категория']['rollup']['array']  else None ,  # Notion's Lazy API can't fetch all rollup values
             'subcategory_id':    item['properties']['Подкатегория']['relation'][0]['id']                     if item['properties']['Подкатегория']['relation']      else None ,
             'is_archived':       item['properties']['Скрита']['checkbox']                                                                                                     ,
             'created_time':      item['created_time']                                                                                                                         ,

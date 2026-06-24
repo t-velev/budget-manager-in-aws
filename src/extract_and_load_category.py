@@ -4,7 +4,7 @@
 
 import os
 import pendulum
-from ntn_utils import run_full_extraction_pipeline
+from src.ntn_utils import run_full_extraction_pipeline
 
 #######################################################
 ## 2. Set initial vars
@@ -79,7 +79,7 @@ def lambda_handler(event, context):
     id_cols_filter = ['Name']
 
     # Call the main extract function in ntn_utils.py
-    category= run_full_extraction_pipeline(event, pg_table_name, category_db_id, dag_name, task_name, map_all_data, map_filtered_data, new_data_filter, id_cols_filter)
+    status = run_full_extraction_pipeline(event, pg_table_name, category_db_id, dag_name, task_name, map_all_data, map_filtered_data, new_data_filter, id_cols_filter)
 
     return status
 

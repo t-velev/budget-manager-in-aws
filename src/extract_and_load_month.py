@@ -4,7 +4,7 @@
 
 import os
 import pendulum
-from ntn_utils import run_full_extraction_pipeline
+from src.ntn_utils import run_full_extraction_pipeline
 
 #######################################################
 ## 2. Set initial vars
