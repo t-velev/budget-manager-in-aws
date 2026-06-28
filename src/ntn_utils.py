@@ -100,7 +100,7 @@ def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[di
 
         max_retries = 3
 
-        for attempt in range(max_retries):
+        for attempt in range(max_retries):  # pragma: no branch (tell pytest-cov to ignore this branch)
             try:
                 # Make an API post request
                 response = requests.post(url, json=payload, headers=headers, timeout=90)
@@ -133,7 +133,7 @@ def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[di
                     continue
                 else:
                     print('Max retries reached for Network Error. Failing script.')
-                    raise e       # Crash the script
+                    raise e  # Crash the script
 
             else:
                 # If try block succeed:
