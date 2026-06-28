@@ -12,3 +12,4 @@
 # MISC
 rebuild_after_destroy_steps.md
 *.ignored
+.coverage

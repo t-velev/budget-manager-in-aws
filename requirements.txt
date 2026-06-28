@@ -8,3 +8,4 @@ boto3
 pre-commit
 pytest
 pytest-mock
+pytest-cov
