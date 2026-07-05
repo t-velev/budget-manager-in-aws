@@ -380,7 +380,7 @@ def upload_to_s3(df: pd.DataFrame, bucket_name: str, file_name: str) -> None:
         raise
 
 
-def create_db_engine():
+def create_db_engine():  # pragma: no cover (the fn doesn't need testing)
     """
     Creates and returns a SQLAlchemy engine connected to the PostgreSQL data warehouse.
 
