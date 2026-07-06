@@ -1128,8 +1128,57 @@ def test_upload_to_s3_exception(mocker):
     assert "S3 Upload Error" == str(exc_info.value)
 
 
-def test_run_full_extraction_pipeline_with_data(mocker):
-    """Test the run_full_extraction_pipeline() function when there IS new data to process."""
+@pytest.mark.parametrize(
+    'case',
+    [
+        pytest.param(
+            {
+                'get_data_return_value': [{'id': 'mock_id', 'title': 'mock_title'}],
+                'map_all_data_return_value': {'id': 'mock_id', 'title': 'mock_title'},
+                'map_filtered_data_return_value': {'id': 'mock_id', 'title': 'mock_title'},
+                'mock_event': {'run_id': '2026-07-05T15:36:00Z'},
+                'expected_return': {'statusCode': 200, 'run_id': 20260705183600, 'body': 'mock_table extraction and load completed successfully!'},
+                'expected_get_data_call_count': 2,
+                'expected_upsert_stats_call_count': 3,
+                'expected_upload_to_s3_call_count': 1,
+            },
+            id='New data is available for processing',
+        ),
+        pytest.param(
+            {
+                'get_data_return_value': [],
+                'map_all_data_return_value': {},
+                'map_filtered_data_return_value': {},
+                'mock_event': {'run_id': '2026-07-05T15:36:00Z'},
+                'expected_return': {'statusCode': 200, 'run_id': 20260705183600, 'body': 'mock_table extraction and load completed successfully!'},
+                'expected_get_data_call_count': 2,
+                'expected_upsert_stats_call_count': 3,
+                'expected_upload_to_s3_call_count': 0,
+            },
+            id='No new data is available for processing',
+        ),
+        pytest.param(
+            {
+                'get_data_return_value': [],
+                'map_all_data_return_value': {},
+                'map_filtered_data_return_value': {},
+                'mock_event': {},
+                'expected_return': {'statusCode': 200, 'run_id': 99999999999999, 'body': 'mock_table extraction and load completed successfully!'},
+                'expected_get_data_call_count': 2,
+                'expected_upsert_stats_call_count': 3,
+                'expected_upload_to_s3_call_count': 0,
+            },
+            id='The event is empty, simulating a full load scenario',
+        ),
+    ],
+)
+def test_run_full_extraction_pipeline(mocker,case):
+    """
+    Test the run_full_extraction_pipeline() function with various scenarios using parameterization.
+    Scenario 1: New data is available for processing.
+    Scenario 2: No new data is available for processing.
+    Scenario 3: The event is empty, simulating a full load scenario.
+    """
 
     mock_get_env = mocker.patch('src.ntn_utils.os.getenv')
     mock_engine = mocker.patch('src.ntn_utils.create_db_engine')
@@ -1143,91 +1192,26 @@ def test_run_full_extraction_pipeline_with_data(mocker):
     mock_map_all_data = mocker.MagicMock()
     mock_map_filtered_data = mocker.MagicMock()
 
-    mock_get_data.return_value = [{'id': 'mock_id', 'title': 'mock_title'}]
-    mock_map_all_data.return_value = {'id': 'mock_id', 'title': 'mock_title'}
-    mock_map_filtered_data.return_value = {'id': 'mock_id', 'title': 'mock_title'}
+    mock_get_data.return_value = case['get_data_return_value']
+    mock_map_all_data.return_value = case['map_all_data_return_value']
+    mock_map_filtered_data.return_value = case['map_filtered_data_return_value']
 
-    mock_event = {'run_id': '2026-07-05T15:36:00Z'}
+    event = case['mock_event']
 
-    result = ntn_utils.run_full_extraction_pipeline(mock_event, 'mock_table', 'mock_table_id', 'mock_dag_name', 'mock_task_name',
-                                                    mock_map_all_data, mock_map_filtered_data, 'new_data_filter', 'id_cols_filter')
+    result = ntn_utils.run_full_extraction_pipeline(
+        event,
+        'mock_table',
+        'mock_table_id',
+        'mock_dag_name',
+        'mock_task_name',
+        mock_map_all_data,
+        mock_map_filtered_data,
+        'new_data_filter',
+        'id_cols_filter',
+    )
 
-    assert result == {
-        'statusCode': 200,
-        'run_id': 20260705183600,
-        'body': 'mock_table extraction and load completed successfully!'
-    }
+    assert result == case['expected_return']
 
-    assert mock_get_data.call_count == 2
-    assert mock_upsert_stats.call_count == 3
-    assert mock_upload_to_s3.call_count == 1
-
-
-def test_run_full_extraction_pipeline_no_data(mocker):
-    """Test the run_full_extraction_pipeline() function when there IS NO new data to process."""
-
-    mock_get_env = mocker.patch('src.ntn_utils.os.getenv')
-    mock_engine = mocker.patch('src.ntn_utils.create_db_engine')
-    mock_last_load_date = mocker.patch('src.ntn_utils.get_last_load_date')
-    mock_get_data = mocker.patch('src.ntn_utils.get_data')
-    mock_upsert_stats = mocker.patch('src.ntn_utils.upsert_into_stats')
-    mock_upload_to_s3 = mocker.patch('src.ntn_utils.upload_to_s3')
-    mock_load_new_data = mocker.patch('src.ntn_utils.load_new_data')
-    mock_del_missing_data = mocker.patch('src.ntn_utils.del_missing_data')
-
-    mock_map_all_data = mocker.MagicMock()
-    mock_map_filtered_data = mocker.MagicMock()
-
-    mock_get_data.return_value = []
-    mock_map_all_data.return_value = {}
-    mock_map_filtered_data.return_value = {}
-
-    mock_event = {'run_id': '2026-07-05T15:36:00Z'}
-
-    result = ntn_utils.run_full_extraction_pipeline(mock_event, 'mock_table', 'mock_table_id', 'mock_dag_name', 'mock_task_name',
-                                                    mock_map_all_data, mock_map_filtered_data, 'new_data_filter', 'id_cols_filter')
-
-    assert result == {
-        'statusCode': 200,
-        'run_id': 20260705183600,
-        'body': 'mock_table extraction and load completed successfully!'
-    }
-
-    assert mock_get_data.call_count == 2
-    assert mock_upsert_stats.call_count == 3
-    assert mock_upload_to_s3.call_count == 0
-
-
-def test_run_full_extraction_pipeline_empty_event(mocker):
-    """Test the run_full_extraction_pipeline() function when the event is empty."""
-
-    mock_get_env = mocker.patch('src.ntn_utils.os.getenv')
-    mock_engine = mocker.patch('src.ntn_utils.create_db_engine')
-    mock_last_load_date = mocker.patch('src.ntn_utils.get_last_load_date')
-    mock_get_data = mocker.patch('src.ntn_utils.get_data')
-    mock_upsert_stats = mocker.patch('src.ntn_utils.upsert_into_stats')
-    mock_upload_to_s3 = mocker.patch('src.ntn_utils.upload_to_s3')
-    mock_load_new_data = mocker.patch('src.ntn_utils.load_new_data')
-    mock_del_missing_data = mocker.patch('src.ntn_utils.del_missing_data')
-
-    mock_map_all_data = mocker.MagicMock()
-    mock_map_filtered_data = mocker.MagicMock()
-
-    mock_get_data.return_value = []
-    mock_map_all_data.return_value = {}
-    mock_map_filtered_data.return_value = {}
-
-    mock_event = {}
-
-    result = ntn_utils.run_full_extraction_pipeline(mock_event, 'mock_table', 'mock_table_id', 'mock_dag_name', 'mock_task_name',
-                                                    mock_map_all_data, mock_map_filtered_data, 'new_data_filter', 'id_cols_filter')
-
-    assert result == {
-        'statusCode': 200,
-        'run_id': 99999999999999,
-        'body': 'mock_table extraction and load completed successfully!'
-    }
-
-    assert mock_get_data.call_count == 2
-    assert mock_upsert_stats.call_count == 3
-    assert mock_upload_to_s3.call_count == 0
+    assert mock_get_data.call_count == case['expected_get_data_call_count']
+    assert mock_upsert_stats.call_count == case['expected_upsert_stats_call_count']
+    assert mock_upload_to_s3.call_count == case['expected_upload_to_s3_call_count']
