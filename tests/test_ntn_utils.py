@@ -281,10 +281,28 @@ def fake_environment_lookup():
     return lookup
 
 
-def test_get_data_return_value_filtered(mocker):
+@pytest.mark.parametrize(
+    'case',
+    [
+        pytest.param(
+            {
+                'json_return_value': mock_notion_json_filtered(),
+                'filter_cols': filter_cols(),
+            },
+            id='Filtered Extracted Notion Data',
+        ),
+        pytest.param(
+            {
+                'json_return_value': mock_notion_json_full(),
+                'filter_cols': [],
+            },
+            id='Full Extracted Notion Data',
+        ),
+    ],
+)
+def test_get_data_return_value(mocker, case):
     """
-    Test if get_data()'s return value all_data matches expectations
-    with FILTERED API response.
+    Test if get_data() returns the correct data based on the provided case.
     """
 
     # Intercept source functions
@@ -295,58 +313,24 @@ def test_get_data_return_value_filtered(mocker):
     # Mock the response of getenv
     mock_getenv.side_effect = fake_environment_lookup()
 
-    # Mock the response of the API client
-    mock_response = mocker.MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_filtered()
-
-    # Set the mock API client to return the mocked response
-    mock_post.return_value = mock_response
-
-    # Call the function with the mock API client
-    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
-
-    # Assert that the correct data is returned
-    assert result == mock_notion_json_filtered()['results']
-
-    # Assert the number of times mocks were called
-    assert mock_post.call_count == 1
-    assert mock_sleep.call_count == 1
-    assert mock_getenv.call_count == 3
-
-
-def test_get_data_return_value_no_filter(mocker):
-    """
-    Test if get_data()'s return value all_data matches expectations
-    with FULL API response.
-    """
-
-     # Intercept source functions
-    mock_post = mocker.patch("src.ntn_utils.requests.post")
-    mock_getenv = mocker.patch("src.ntn_utils.os.getenv")
-    mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
-
-    # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup()
-
     # Mocke the response of the API client
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_full()
+    mock_response.json.return_value = case['json_return_value']
 
     # Set the mock API client to return the mocked response
     mock_post.return_value = mock_response
 
     # Call the function with the mock API client
-    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols=[])
+    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols=case['filter_cols'])
 
     # Assert that the correct data is returned
-    assert result == mock_notion_json_full()['results']
+    assert result == case['json_return_value']['results']
 
     # Assert the number of times mocks were called
     assert mock_post.call_count == 1
     assert mock_sleep.call_count == 1
-    assert mock_getenv.call_count == 3
+    assert mock_getenv.call_count == 3    
 
 
 def test_get_data_raises_exception_on_non_200(mocker):
