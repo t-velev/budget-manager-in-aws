@@ -9,9 +9,12 @@ from unittest.mock import call
 from sqlalchemy.exc import SQLAlchemyError
 
 
-filter_cols = ['Name', 'Архивирай']
+def filter_cols():
+    """Return a list of columns to be filtered when extracting data from Notion"""
 
-@pytest.fixture
+    filter_cols = ['Name', 'Архивирай']
+    return filter_cols
+
 def mock_notion_json_full():
 
     json_full = {
@@ -101,7 +104,6 @@ def mock_notion_json_full():
 
     return json_full
 
-@pytest.fixture
 def mock_notion_json_filtered():
 
     json_filtered = {
@@ -157,7 +159,6 @@ def mock_notion_json_filtered():
 
     return json_filtered
 
-@pytest.fixture
 def mock_notion_json_pagination():
 
     json_paged = {
@@ -253,7 +254,6 @@ def mock_notion_json_pagination():
 
     return json_paged
 
-@pytest.fixture
 def fake_environment_lookup():
     """
     Return a function that simulates os.getenv() for testing purposes.
@@ -281,7 +281,7 @@ def fake_environment_lookup():
     return lookup
 
 
-def test_get_data_return_value_filtered(mocker, mock_notion_json_filtered, fake_environment_lookup):
+def test_get_data_return_value_filtered(mocker):
     """
     Test if get_data()'s return value all_data matches expectations
     with FILTERED API response.
@@ -293,21 +293,21 @@ def test_get_data_return_value_filtered(mocker, mock_notion_json_filtered, fake_
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_filtered
+    mock_response.json.return_value = mock_notion_json_filtered()
 
     # Set the mock API client to return the mocked response
     mock_post.return_value = mock_response
 
     # Call the function with the mock API client
-    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert that the correct data is returned
-    assert result == mock_notion_json_filtered['results']
+    assert result == mock_notion_json_filtered()['results']
 
     # Assert the number of times mocks were called
     assert mock_post.call_count == 1
@@ -315,7 +315,7 @@ def test_get_data_return_value_filtered(mocker, mock_notion_json_filtered, fake_
     assert mock_getenv.call_count == 3
 
 
-def test_get_data_return_value_no_filter(mocker, mock_notion_json_full, fake_environment_lookup):
+def test_get_data_return_value_no_filter(mocker):
     """
     Test if get_data()'s return value all_data matches expectations
     with FULL API response.
@@ -327,12 +327,12 @@ def test_get_data_return_value_no_filter(mocker, mock_notion_json_full, fake_env
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mocke the response of the API client
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_full
+    mock_response.json.return_value = mock_notion_json_full()
 
     # Set the mock API client to return the mocked response
     mock_post.return_value = mock_response
@@ -341,7 +341,7 @@ def test_get_data_return_value_no_filter(mocker, mock_notion_json_full, fake_env
     result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols=[])
 
     # Assert that the correct data is returned
-    assert result == mock_notion_json_full['results']
+    assert result == mock_notion_json_full()['results']
 
     # Assert the number of times mocks were called
     assert mock_post.call_count == 1
@@ -349,7 +349,7 @@ def test_get_data_return_value_no_filter(mocker, mock_notion_json_full, fake_env
     assert mock_getenv.call_count == 3
 
 
-def test_get_data_raises_exception_on_non_200(mocker, fake_environment_lookup):
+def test_get_data_raises_exception_on_non_200(mocker):
     """Test if function raises an exception when the API response is not 200."""
 
     # Intercept source functions
@@ -358,7 +358,7 @@ def test_get_data_raises_exception_on_non_200(mocker, fake_environment_lookup):
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_response = mocker.MagicMock()
@@ -373,7 +373,7 @@ def test_get_data_raises_exception_on_non_200(mocker, fake_environment_lookup):
 
     # Call the function and assert that it raises an exception
     with pytest.raises(requests.exceptions.HTTPError) as exc_info:
-        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert the exception contains the expected message.
     assert "500 Server Error" == str(exc_info.value)
@@ -384,7 +384,7 @@ def test_get_data_raises_exception_on_non_200(mocker, fake_environment_lookup):
     assert mock_getenv.call_count == 3
 
 
-def test_get_data_retries_and_fails_on_constant_429(mocker, fake_environment_lookup):
+def test_get_data_retries_and_fails_on_constant_429(mocker):
     """
     Test if get_data() raises an exception when the API response is 429,
     retries 3 times and fail on all of them.
@@ -396,7 +396,7 @@ def test_get_data_retries_and_fails_on_constant_429(mocker, fake_environment_loo
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_429 = mocker.MagicMock()
@@ -408,7 +408,7 @@ def test_get_data_retries_and_fails_on_constant_429(mocker, fake_environment_loo
 
     # Call the function and assert that it raises an exception
     with pytest.raises(requests.exceptions.HTTPError) as exc_info:
-        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert the exception contains the expected message.
     assert "Rate limited." == str(exc_info.value)
@@ -419,7 +419,7 @@ def test_get_data_retries_and_fails_on_constant_429(mocker, fake_environment_loo
     assert mock_getenv.call_count == 3
 
 
-def test_get_data_recovers_after_retries(mocker, mock_notion_json_filtered, fake_environment_lookup):
+def test_get_data_recovers_after_retries(mocker):
     """
     Test if get_data() raises an exception when the API response is 429,
     retries 2 times and fails, but succeed on the 3-rd retry.
@@ -431,7 +431,7 @@ def test_get_data_recovers_after_retries(mocker, mock_notion_json_filtered, fake
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the 429 response of the API client
     mock_429 = mocker.MagicMock()
@@ -441,16 +441,16 @@ def test_get_data_recovers_after_retries(mocker, mock_notion_json_filtered, fake
     # Mock the 200 response of the API client
     mock_200 = mocker.MagicMock()
     mock_200.status_code = 200  # Success
-    mock_200.json.return_value = mock_notion_json_filtered
+    mock_200.json.return_value = mock_notion_json_filtered()
 
     # Pass a list of mock statuses for all 3 exec attempts
     mock_post.side_effect = [mock_429, mock_429, mock_200]
 
     # Call the function with the mock API client
-    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert that the correct data is returned
-    assert result == mock_notion_json_filtered['results']
+    assert result == mock_notion_json_filtered()['results']
 
     # Assert the loop ran exactly 3 times before succeeding
     assert mock_post.call_count == 3
@@ -467,7 +467,7 @@ def test_get_data_recovers_after_retries(mocker, mock_notion_json_filtered, fake
     assert mock_sleep.call_args_list == expected_sleep_history
 
 
-def test_get_data_retries_and_fails_on_network_issues(mocker, fake_environment_lookup):
+def test_get_data_retries_and_fails_on_network_issues(mocker):
     """
     Test if get_data() raises an exception when we have RequestException,
     due to network issues.
@@ -479,7 +479,7 @@ def test_get_data_retries_and_fails_on_network_issues(mocker, fake_environment_l
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_429 = mocker.MagicMock()
@@ -491,7 +491,7 @@ def test_get_data_retries_and_fails_on_network_issues(mocker, fake_environment_l
 
     # Call the function and assert that it raises an exception
     with pytest.raises(requests.exceptions.RequestException) as exc_info:
-        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert the exception contains the expected message.
     assert "Network issue." == str(exc_info.value)
@@ -502,7 +502,7 @@ def test_get_data_retries_and_fails_on_network_issues(mocker, fake_environment_l
     assert mock_getenv.call_count == 3
 
 
-def test_get_data_pagination(mocker, mock_notion_json_filtered, mock_notion_json_pagination, fake_environment_lookup):
+def test_get_data_pagination(mocker):
     """Test if pagination in get_data() works properly."""
 
     # Intercept source functions
@@ -511,12 +511,12 @@ def test_get_data_pagination(mocker, mock_notion_json_filtered, mock_notion_json
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Create API response mock - first page
     mock_first_response = mocker.MagicMock()
     mock_first_response.status_code = 200
-    mock_first_response.json.return_value = {"results": mock_notion_json_filtered['results'],
+    mock_first_response.json.return_value = {"results": mock_notion_json_filtered()['results'],
                                              "next_cursor": "null",
                                              "has_more": True,
                                              "type": "page_or_database",
@@ -526,7 +526,7 @@ def test_get_data_pagination(mocker, mock_notion_json_filtered, mock_notion_json
     # Create API response mock - second/last page
     mock_second_response = mocker.MagicMock()
     mock_second_response.status_code = 200
-    mock_second_response.json.return_value = {"results": mock_notion_json_filtered['results'],
+    mock_second_response.json.return_value = {"results": mock_notion_json_filtered()['results'],
                                              "next_cursor": "null",
                                              "has_more": False,
                                              "type": "page_or_database",
@@ -538,9 +538,9 @@ def test_get_data_pagination(mocker, mock_notion_json_filtered, mock_notion_json
     mock_post.side_effect = [mock_first_response, mock_second_response]
 
     # Call the source function
-    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+    result = ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
-    assert result == mock_notion_json_pagination['results']
+    assert result == mock_notion_json_pagination()['results']
 
     # Assert the number of times mocks were called
     assert mock_post.call_count == 2
@@ -548,7 +548,7 @@ def test_get_data_pagination(mocker, mock_notion_json_filtered, mock_notion_json
     assert mock_getenv.call_count == 5
 
 
-def test_get_data_reduce_payload_page_size(mocker, mock_notion_json_filtered, fake_environment_lookup):
+def test_get_data_reduce_payload_page_size(mocker):
     """Test if page_size is lowered from 100 to 25 when Notion database is Subcategory"""
 
     # Intercept source functions
@@ -557,17 +557,17 @@ def test_get_data_reduce_payload_page_size(mocker, mock_notion_json_filtered, fa
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_filtered
+    mock_response.json.return_value = mock_notion_json_filtered()
 
     # Set the mock API client to return the mocked response
     mock_post.return_value = mock_response
 
-    result = ntn_utils.get_data('fake_ntn_subcategory_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+    result = ntn_utils.get_data('fake_ntn_subcategory_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert that the passed arguments to the API contain page_size = 25
     mock_post.assert_called_once_with(
@@ -581,10 +581,10 @@ def test_get_data_reduce_payload_page_size(mocker, mock_notion_json_filtered, fa
     )
 
     # Assert that the final result is correct
-    assert result == mock_notion_json_filtered['results']
+    assert result == mock_notion_json_filtered()['results']
 
 
-def test_get_data_add_filters_when_transaction(mocker, mock_notion_json_filtered, fake_environment_lookup):
+def test_get_data_add_filters_when_transaction(mocker):
     """Test if filters are added to the payload when Notion database is Transaction"""
 
     # Intercept source functions
@@ -593,17 +593,17 @@ def test_get_data_add_filters_when_transaction(mocker, mock_notion_json_filtered
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_filtered
+    mock_response.json.return_value = mock_notion_json_filtered()
 
     # Set the mock API client to return the mocked response
     mock_post.return_value = mock_response
 
-    result = ntn_utils.get_data('fake_ntn_transaction_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+    result = ntn_utils.get_data('fake_ntn_transaction_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
     # Assert that the passed arguments to the API contain filter for Template and Статус
     mock_post.assert_called_once_with(
@@ -627,10 +627,10 @@ def test_get_data_add_filters_when_transaction(mocker, mock_notion_json_filtered
     )
 
     # Assert that the final result is correct
-    assert result == mock_notion_json_filtered['results']
+    assert result == mock_notion_json_filtered()['results']
 
 
-def test_get_data_no_filters_when_last_load_date_is_none(mocker, mock_notion_json_filtered, fake_environment_lookup):
+def test_get_data_no_filters_when_last_load_date_is_none(mocker):
     """Test that no date filters are appended to the payload when doing a full load (last_load_date is None)."""
 
     # Intercept source functions
@@ -639,17 +639,17 @@ def test_get_data_no_filters_when_last_load_date_is_none(mocker, mock_notion_jso
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = mock_notion_json_filtered
+    mock_response.json.return_value = mock_notion_json_filtered()
 
     # Set the mock API client to return the mocked response
     mock_post.return_value = mock_response
 
-    result = ntn_utils.get_data('fake_ntn_subcategory_key', last_load_date=None, filter_cols=filter_cols)
+    result = ntn_utils.get_data('fake_ntn_subcategory_key', last_load_date=None, filter_cols=filter_cols())
 
     # Grab the payload sent to requests.post
     sent_payload = mock_post.call_args.kwargs["json"]
@@ -658,7 +658,7 @@ def test_get_data_no_filters_when_last_load_date_is_none(mocker, mock_notion_jso
     assert "filter" not in sent_payload
 
 
-def test_get_data_api_network_error(mocker, mock_notion_json_filtered, fake_environment_lookup):
+def test_get_data_api_network_error(mocker):
     """Test if get_data() raises the correct exception when the API returns a network error."""
 
     # Intercept source functions
@@ -667,7 +667,7 @@ def test_get_data_api_network_error(mocker, mock_notion_json_filtered, fake_envi
     mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
 
     # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup
+    mock_getenv.side_effect = fake_environment_lookup()
 
     # Mock the response of the API client
     mock_response = mocker.MagicMock()
@@ -678,7 +678,7 @@ def test_get_data_api_network_error(mocker, mock_notion_json_filtered, fake_envi
     mock_post.return_value = mock_response
 
     with pytest.raises(requests.exceptions.RequestException) as exc_info:
-        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols)
+        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
 
 
 def test_get_last_load_date(mocker):
