@@ -642,23 +642,42 @@ def test_get_data_no_filters_when_last_load_date_is_none(mocker):
     assert "filter" not in sent_payload
 
 
-def test_get_last_load_date(mocker):
-    """Test if get_last_load_date() returns the correct date."""
+@pytest.mark.parametrize(
+    'case',
+    [
+        pytest.param(
+            {
+                'last_load_date': pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'),
+                'result': pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'),
+            },
+            id='When last_load_date exists.'
+        ),
+        pytest.param(
+            {
+                'last_load_date': None,
+                'result': None,
+            },
+            id='When last_load_date is None.'
+        ),
+    ],
+)
+def test_get_last_load_date(mocker, case):
+    """Test if get_last_load_date() returns the correct result based on the last_load_date"""
 
     # Intercept source functions
     mock_pd_read_sql = mocker.patch("src.ntn_utils.pd.read_sql_query")
 
     # Mock the response of pd.read_sql
-    mock_pd_read_sql.return_value = pd.DataFrame([{'last_load_date': pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC')}])
+    mock_pd_read_sql.return_value = pd.DataFrame([{'max(last_load_date)': case['last_load_date']}])
 
     # Call the function with the mock API client
     result = ntn_utils.get_last_load_date('mock_schema', 'mock_table', 'mock_engine')
 
     # Assert that the correct data is returned
-    assert result == pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC')
+    assert result == case['result']
 
     # Assert the number of times mocks were called
-    assert mock_pd_read_sql.call_count == 1
+    assert mock_pd_read_sql.call_count == 1    
 
 
 def test_get_last_load_date_query_error(mocker):
@@ -680,23 +699,6 @@ def test_get_last_load_date_query_error(mocker):
     assert "DB Error" == str(exc_info.value)
 
 
-def test_get_last_load_date_none(mocker):
-    """Test if get_last_load_date() returns None when no previous loads are found."""
-
-    # Intercept source functions
-    mock_pd_read_sql = mocker.patch("src.ntn_utils.pd.read_sql_query")
-
-    # Mock the response of pd.read_sql
-    mock_pd_read_sql.return_value = pd.DataFrame([{'max(last_load_date)': None}])
-
-    # Call the function with the mock API client
-    result = ntn_utils.get_last_load_date('mock_schema', 'mock_table', 'mock_engine')
-
-    # Assert that the correct data is returned
-    assert result == None
-
-    # Assert the number of times mocks were called
-    assert mock_pd_read_sql.call_count == 1
 
 
 def test_load_new_data(mocker):
