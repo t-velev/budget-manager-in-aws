@@ -108,6 +108,7 @@ def mock_notion_json():
 
 
 def test_map_all_data(mock_notion_json):
+    """Test that map_all_data returns the expected dictionary for the target raw database schema."""
 
     result = extract_and_load_subcategory.map_all_data(mock_notion_json)
 
@@ -133,6 +134,7 @@ def test_map_all_data(mock_notion_json):
 
 
 def test_map_filtered_data(mock_notion_json):
+    """Test that map_filtered_data returns the expected dictionary for the notion_ids_audit table."""
 
     result = extract_and_load_subcategory.map_filtered_data(mock_notion_json)
 
