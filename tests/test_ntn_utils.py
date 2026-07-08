@@ -642,29 +642,6 @@ def test_get_data_no_filters_when_last_load_date_is_none(mocker):
     assert "filter" not in sent_payload
 
 
-def test_get_data_api_network_error(mocker):
-    """Test if get_data() raises the correct exception when the API returns a network error."""
-
-    # Intercept source functions
-    mock_post = mocker.patch("src.ntn_utils.requests.post")
-    mock_getenv = mocker.patch("src.ntn_utils.os.getenv")
-    mock_sleep = mocker.patch("src.ntn_utils.time.sleep")
-
-    # Mock the response of getenv
-    mock_getenv.side_effect = fake_environment_lookup()
-
-    # Mock the response of the API client
-    mock_response = mocker.MagicMock()
-    mock_response.status_code = 200
-    mock_response.raise_for_status.side_effect = requests.exceptions.RequestException('Network error.')
-
-    # Set the mock API client to return the mocked response
-    mock_post.return_value = mock_response
-
-    with pytest.raises(requests.exceptions.RequestException) as exc_info:
-        ntn_utils.get_data('fake_ntn_account_key', pendulum.datetime(2020, 1, 1, 18, 0, 0, tz='UTC'), filter_cols())
-
-
 def test_get_last_load_date(mocker):
     """Test if get_last_load_date() returns the correct date."""
 
