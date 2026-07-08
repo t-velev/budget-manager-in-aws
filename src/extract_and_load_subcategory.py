@@ -91,5 +91,5 @@ def lambda_handler(event, context):
 
 
 # So I can still test the script locally
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover (don't include it in pytest coverage)
     lambda_handler(None, None)
