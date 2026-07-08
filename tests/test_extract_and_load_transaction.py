@@ -101,3 +101,31 @@ def test_map_filtered_data(mock_notion_json):
         "title": "TickTick",
         "source_name": "transaction"
     }
+
+
+def test_transaction_lambda_handler_wires_pipeline_correctly(mocker):
+    """Test that lambda_handler calls the pipeline with the exact correct parameters."""
+    
+    # Intercept the pipeline function and mock its return value
+    mock_pipeline = mocker.patch('src.extract_and_load_transaction.run_full_extraction_pipeline')
+    mock_pipeline.return_value = {'statusCode': 200, 'run_id': 1234, 'body': 'Success'}
+
+    # Call the handler
+    mock_event = {'run_id': '12345'}
+    result = extract_and_load_transaction.lambda_handler(mock_event, None)
+
+    # Assert the lambda handler returns what the pipeline returned
+    assert result == {'statusCode': 200, 'run_id': 1234, 'body': 'Success'}
+
+    # Assert the exact right variables and functions were passed to the pipeline function
+    mock_pipeline.assert_called_once_with(
+        mock_event,
+        'transaction',                                                                                        # pg_table_name
+        extract_and_load_transaction.transaction_db_id,                                                       # transaction_db_id
+        extract_and_load_transaction.dag_name,                                                                # dag_name
+        extract_and_load_transaction.task_name,                                                               # task_name
+        extract_and_load_transaction.map_all_data,                                                            # map_all_data (the function itself!)
+        extract_and_load_transaction.map_filtered_data,                                                       # map_filtered_data (the function itself!)
+        ['Name', 'Тип', 'Дата', 'Сума', 'Статус', 'Бележка', 'Година', 'Месец', 'Подкатегория', 'Template'],  # new_data_filter
+        ['Name']                                                                                              # id_cols_filter
+    )

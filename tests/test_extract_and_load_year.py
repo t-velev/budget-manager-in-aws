@@ -169,3 +169,31 @@ def test_map_filtered_data(mock_notion_json):
         "title": "2023",
         "source_name": "year"
     }
+
+
+def test_year_lambda_handler_wires_pipeline_correctly(mocker):
+    """Test that lambda_handler calls the pipeline with the exact correct parameters."""
+    
+    # Intercept the pipeline function and mock its return value
+    mock_pipeline = mocker.patch('src.extract_and_load_year.run_full_extraction_pipeline')
+    mock_pipeline.return_value = {'statusCode': 200, 'run_id': 1234, 'body': 'Success'}
+
+    # Call the handler
+    mock_event = {'run_id': '12345'}
+    result = extract_and_load_year.lambda_handler(mock_event, None)
+
+    # Assert the lambda handler returns what the pipeline returned
+    assert result == {'statusCode': 200, 'run_id': 1234, 'body': 'Success'}
+
+    # Assert the exact right variables and functions were passed to the pipeline function
+    mock_pipeline.assert_called_once_with(
+        mock_event,
+        'year',                                   # pg_table_name
+        extract_and_load_year.year_db_id,         # year_db_id
+        extract_and_load_year.dag_name,           # dag_name
+        extract_and_load_year.task_name,          # task_name
+        extract_and_load_year.map_all_data,       # map_all_data (the function itself!)
+        extract_and_load_year.map_filtered_data,  # map_filtered_data (the function itself!)
+        ['Име'],                                  # new_data_filter
+        ['Име']                                   # id_cols_filter
+    )
