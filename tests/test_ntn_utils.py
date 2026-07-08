@@ -699,8 +699,6 @@ def test_get_last_load_date_query_error(mocker):
     assert "DB Error" == str(exc_info.value)
 
 
-
-
 def test_load_new_data(mocker):
     """Test successful deletion and insertion of new data."""
 
@@ -956,15 +954,34 @@ def test_del_missing_data_exception(mocker):
     assert "DB Error" == str(exc_info.value)
 
 
-def test_upsert_into_stats_insert_stmt(mocker):
-    """Test the behavior of upsert_into_stats() when inserting a new record."""
+@pytest.mark.parametrize(
+    'case',
+    [
+        pytest.param(
+            {
+                'fetchone_return_value': ('mock_id', 'mock_date'),
+                'sql_keyword': 'UPDATE',
+            },
+            id='The row already exists in the database',
+        ),
+        pytest.param(
+            {
+                'fetchone_return_value': None,
+                'sql_keyword': 'INSERT',
+            },
+            id='The row does not exist in the database',
+        ),
+    ],
+)
+def test_upsert_into_stats(mocker, case):
+    """Test the behavior of upsert_into_stats() when inserting and updating an existing record."""
 
     mock_engine = mocker.MagicMock()
     mock_conn = mocker.MagicMock()
 
     mock_engine.begin.return_value.__enter__.return_value = mock_conn
 
-    mock_conn.execute.return_value.fetchone.return_value = None
+    mock_conn.execute.return_value.fetchone.return_value = case['fetchone_return_value']
 
     ntn_utils.upsert_into_stats(
         mock_engine, 'mock_row_count', 'mock_run_id', 'mock_run_date', 'mock_dag_name', 'mock_task_name', 'ntn_extracted'
@@ -977,37 +994,10 @@ def test_upsert_into_stats_insert_stmt(mocker):
     all_calls = mock_conn.execute.call_args_list
 
     select_query = str(all_calls[0][0][0])
-    insert_query = str(all_calls[1][0][0])
+    upsert_query = str(all_calls[1][0][0])
 
     assert "SELECT" in select_query
-    assert "INSERT" in insert_query
-
-
-def test_upsert_into_stats_update_stmt(mocker):
-    """Test the behavior of upsert_into_stats() when updating an existing record."""
-
-    mock_engine = mocker.MagicMock()
-    mock_conn = mocker.MagicMock()
-
-    mock_engine.begin.return_value.__enter__.return_value = mock_conn
-
-    mock_conn.execute.return_value.fetchone.return_value = ('mock_id', 'mock_date')
-
-    ntn_utils.upsert_into_stats(
-        mock_engine, 'mock_row_count', 'mock_run_id', 'mock_run_date', 'mock_dag_name', 'mock_task_name', 'ntn_extracted'
-    )
-
-    # Assert the DELETE query was executed correctly
-    assert mock_conn.execute.call_count == 2
-
-    # Extract the history of what queries were sent
-    all_calls = mock_conn.execute.call_args_list
-
-    select_query = str(all_calls[0][0][0])
-    insert_query = str(all_calls[1][0][0])
-
-    assert "SELECT" in select_query
-    assert "UPDATE" in insert_query
+    assert case['sql_keyword'] in upsert_query    
 
 
 def test_upsert_into_stats_exception(mocker):
