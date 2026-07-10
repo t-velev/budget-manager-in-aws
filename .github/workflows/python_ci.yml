@@ -20,7 +20,7 @@ jobs:
 
     # Install Python 3.12 (matching Dev Container)
     - name: Set up Python 3.12
-      uses: actions/setup-python@v6.3
+      uses: actions/setup-python@v6.3.0
       with:
         python-version: "3.12"
         cache: 'pip' # Automatically caches libraries to make future runs faster
