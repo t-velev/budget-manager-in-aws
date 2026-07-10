@@ -1,0 +1,44 @@
+name: Python CI Pipeline
+
+# Conditions to run this pipeline
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Jobs to be executed
+jobs:
+  unit_tests:
+    name: Run Pytest
+    runs-on: ubuntu-latest
+
+    steps:
+    # Download your code from your repository onto the runner
+    - name: Checkout repository
+      uses: actions/checkout@v7
+
+    # Install Python 3.12 (matching Dev Container)
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v6.3
+      with:
+        python-version: "3.12"
+        cache: 'pip' # Automatically caches libraries to make future runs faster
+
+    # Install project requirements and pytest-mock
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-mock
+
+    # Execute your test suite
+    - name: Run Pytest
+      run: |
+        pytest tests/ -v
+
+      # Provide fake AWS credentials purely to satisfy boto3 if it attempts to validate the environment
+      env:
+        AWS_ACCESS_KEY_ID: "testing"
+        AWS_SECRET_ACCESS_KEY: "testing"
+        AWS_DEFAULT_REGION: "eu-central-1"
