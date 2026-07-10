@@ -22,6 +22,7 @@ The goal was to build a secure, serverless, automated Data Lakehouse entirely fr
 *   **Orchestration:** AWS Step Functions
 *   **Scheduling:** Amazon EventBridge
 *   **Infrastructure as Code:** HashiCorp Terraform
+*   **CI/CD & Testing:** GitHub Actions, pytest, pytest-mock
 *   **Dev Environment:** VS Code Dev Containers, Makefile, Git
 *   **Support:** Google Gemini (Acting as my virtual Senior Data Engineer mentor).
 
@@ -47,6 +48,10 @@ This project transitions from a traditional database-only ELT flow to a modern D
 ## Key Technical Challenges & Learnings
 
 Migrating to the cloud exposed me to real-world DevOps and Cloud Engineering hurdles that you simply don't face on a local machine:
+
+- **Software Engineering Rigor (Testing & CI/CD)**
+    - **The Problem:** Manually testing extraction scripts against a live API is slow, risks data corruption, and violates rate limits. Furthermore, deploying infrastructure and code manually via the terminal is error-prone and violates DevOps best practices.
+    - **The Solution:** I refactored the extraction Python scripts into a "Hub and Spoke" pattern, separating execution logic from the core pipeline engine. This allowed me to write a comprehensive unit testing suite using `pytest`. I used `pytest-mock` to fake Notion API paginated responses and SQLAlchemy database connections, ensuring the logic was mathematically sound without needing internet access. Finally, I built a **GitHub Actions** CI/CD pipeline that automatically provisions an Ubuntu runner, installs dependencies, and executes the test suite on every push.
 
 - **The "Serverless Docker" Trap (C-Compilers & Cold Starts)**
     - **The Problem:** Deploying Python with `pandas` and `psycopg2` (which requires C-compilers) to AWS Lambda and ECS Fargate. Initially, `dbt-postgres` failed to compile in the cloud because I was using a lightweight `-slim` Linux image.
