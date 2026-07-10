@@ -10,7 +10,7 @@ from src.ntn_utils import run_full_extraction_pipeline
 ## 2. Set initial vars
 #######################################################
 
-pg_table_name = 'account'
+pg_table_name = 'accountt'
 account_db_id = os.getenv('NOTION_DB_ID_ACCOUNT')
 
 dag_name = os.getenv('dag_name', 'notion_to_dwh_main_pipeline')
