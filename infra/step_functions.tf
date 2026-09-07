@@ -85,6 +85,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_account.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         Next = "ExtractAndLoadCategory"
@@ -98,6 +99,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_category.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         Next = "ExtractAndLoadSubcategory"
@@ -111,6 +113,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_subcategory.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         Next = "ExtractAndLoadYear"
@@ -124,6 +127,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_year.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         Next = "ExtractAndLoadMonth"
@@ -137,6 +141,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_month.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         Next = "ExtractAndLoadBudget"
@@ -150,6 +155,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_budget.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         Next = "ExtractAndLoadTransaction"
@@ -163,6 +169,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           FunctionName = aws_lambda_function.extract_transaction.function_name
           Payload = {
             "run_id.$" = "$$.Execution.StartTime"
+            "execution_input.$" = "$$.Execution.Input"
           }
         },
         # Extract JUST the Payload from Lambda so we can easily grab $.run_id
@@ -177,46 +184,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           "run_id.$"          = "$.run_id",
           "execution_input.$" = "$$.Execution.Input"
         },
-        Next = "CheckIfInitialLoad"
-      },
-
-# CHOICE STATE: Should we reset the dates for an initial load?
-      CheckIfInitialLoad = {
-        Type = "Choice",
-        Choices =[
-          {
-            # We use an 'And' block to safely check if the variable even exists first!
-            # If you run {} manually, Step Functions crashes if we don't use IsPresent: true
-            And =[
-              {
-                Variable  = "$.execution_input.is_initial_load",
-                IsPresent = true
-              },
-              {
-                Variable      = "$.execution_input.is_initial_load",
-                BooleanEquals = true
-              }
-            ],
-            Next = "ResetRawNotionDates"
-          }
-        ],
-        # If it's false, or if it doesn't exist, skip the reset and go to stringify the vars!
-        Default = "StringifyDbtVars"
-      },
-
-      # CONDITIONAL TASK: Reset Raw Dates
-      ResetRawNotionDates = {
-        Type     = "Task",
-        Resource = "arn:aws:states:::lambda:invoke",
-        Parameters = {
-          FunctionName = aws_lambda_function.reset_raw_notion_dates.function_name
-          Payload      = {}
-        },
-        # CRITICAL: We use ResultPath instead of OutputPath!
-        # This appends the Lambda response to the JSON instead of overwriting it,
-        # preserving your run_id and execution_input so dbt can still use them!
-        ResultPath = "$.reset_result",
-        Next       = "StringifyDbtVars"
+        Next = "StringifyDbtVars"
       },
 
       # Task 9: Stringify the payload (but preserve the state so we can check it again)
@@ -230,7 +198,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
         Next = "CheckSeedRequirement"
       },
 
-      # CHOICE STATE 2: Do we need to exclude seeds?
+      # CHOICE: Do we need to exclude seeds?
       CheckSeedRequirement = {
         Type = "Choice",
         Choices =[
