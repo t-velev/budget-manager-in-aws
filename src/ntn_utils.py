@@ -7,7 +7,7 @@ import pandas as pd
 from io import StringIO
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import Table, Column, Integer, String, Date, MetaData, select, insert, update, text, create_engine
+from sqlalchemy import Table, Column, Integer, String, Date, MetaData, event, select, insert, update, text, create_engine
 
 def get_data(db_id: str, last_load_date: datetime, filter_cols: list) -> list[dict]:
     """
@@ -444,8 +444,10 @@ def run_full_extraction_pipeline(
     # Grab the raw run_id passed by Step Functions
     if not event:
         raw_run_id = '99999999999999'
+        is_initial_load = False
     else:
         raw_run_id = event.get('run_id', '99999999999999')
+        is_initial_load = event.get('execution_input', {}).get('is_initial_load', False)
 
     # If it's an AWS ISO timestamp (contains a 'T'), parse and format it!
     # Otherwise, assume it's already a formatted number.
@@ -483,8 +485,17 @@ def run_full_extraction_pipeline(
     # Create pandas dataframe
     new_data_df = pd.DataFrame(new_data_list)
 
+
     # Upload the new data to S3
     if not new_data_df.empty:
+
+        # If it's the initial load, reset the created_time and last_edited_time to 1990-01-01 for all records.
+        # The reason is that the last_edited_time is not correct for most of the records due to copy-paste of the Notion database from the original source.
+        # This will allow to have a clean slate for future incremental loads.
+        if is_initial_load:
+            reset_date = pendulum.datetime(1990, 1, 1, tz='UTC')
+            new_data_df[['created_time', 'last_edited_time']] = reset_date
+
         s3_file_key = f"raw_notion/{pg_table_name}/{run_id}_{pg_table_name}.csv"
         upload_to_s3(new_data_df, s3_bucket, s3_file_key)
 
