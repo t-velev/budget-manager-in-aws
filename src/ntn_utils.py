@@ -396,7 +396,7 @@ def create_db_engine():  # pragma: no cover (the fn doesn't need testing)
     db_pass = os.getenv('POSTGRES_PASSWORD')
     db_host = os.getenv('POSTGRES_HOST')
 
-    engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
+    engine = create_engine(f'postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
     return engine
 

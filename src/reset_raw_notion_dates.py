@@ -27,7 +27,7 @@ def lambda_handler(event, context):
 
     print("Starting Lambda Execution...")
 
-    engine = create_engine(f'postgresql://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
+    engine = create_engine(f'postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:5432/{postgres_db}')
 
     try:
         with engine.begin() as conn:

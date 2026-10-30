@@ -1,6 +1,6 @@
 requests
 pandas
-sqlalchemy
+sqlalchemy<2.1
 psycopg2-binary
 pendulum
 dbt-postgres
