@@ -1,25 +1,14 @@
-# 1. Amazon S3 Bucket (The Data Lake)
-# Bucket names must be globally unique across all of AWS, so we add a random suffix
-resource "aws_s3_bucket" "data_lake" {
-  bucket        = "aws-budget-manager-datalake-${data.aws_caller_identity.current.account_id}"
-  force_destroy = true # Allows us to delete the bucket later even if it has files in it
+# 1. Amazon S3 Bucket (The Data Lake) - LOOKED UP, NOT MANAGED
+# The bucket also holds Databricks' Unity Catalog storage (__unitystorage/), so it must
+# survive `terraform destroy`. Terraform only reads it; it never creates or deletes it.
+data "aws_s3_bucket" "data_lake" {
+  bucket = "aws-budget-manager-datalake-${data.aws_caller_identity.current.account_id}"
 }
-
-# Explicitly Block ALL Public Access
-resource "aws_s3_bucket_public_access_block" "secure_lake" {
-  bucket                  = aws_s3_bucket.data_lake.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# Get current AWS account ID to make the bucket name unique
-data "aws_caller_identity" "current" {}
 
 # 2. IAM Role: Give AWS Glue permission to read S3 and write to CloudWatch logs
 resource "aws_iam_role" "glue_crawler_role" {
-  name = "AWSGlueServiceRole-BudgetManager"
+  name                 = "budget-manager-glue-crawler-role"
+  permissions_boundary = local.permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -39,9 +28,26 @@ resource "aws_iam_role_policy_attachment" "glue_service_attach" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
 }
 
-resource "aws_iam_role_policy_attachment" "s3_read_attach" {
-  role       = aws_iam_role.glue_crawler_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+# Read-only access to the raw_notion/ prefix of the data lake (replaces AmazonS3FullAccess)
+resource "aws_iam_role_policy" "glue_s3_read" {
+  name = "read-raw-notion"
+  role = aws_iam_role.glue_crawler_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = ["${data.aws_s3_bucket.data_lake.arn}/raw_notion/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = [data.aws_s3_bucket.data_lake.arn]
+      }
+    ]
+  })
 }
 
 # 3. AWS Glue Catalog Database
@@ -56,35 +62,35 @@ resource "aws_glue_crawler" "notion_crawler" {
   role          = aws_iam_role.glue_crawler_role.arn
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/account/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/account/"
   }
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/category/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/category/"
   }
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/subcategory/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/subcategory/"
   }
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/year/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/year/"
   }
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/month/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/month/"
   }
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/budget/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/budget/"
   }
 
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake.bucket}/raw_notion/transaction/"
+    path = "s3://${data.aws_s3_bucket.data_lake.bucket}/raw_notion/transaction/"
   }
 }
 
 # Output the bucket name so we can use it in Python
 output "s3_bucket_name" {
-  value = aws_s3_bucket.data_lake.bucket
+  value = data.aws_s3_bucket.data_lake.bucket
 }

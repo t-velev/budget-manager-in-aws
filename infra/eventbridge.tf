@@ -1,4 +1,4 @@
-# 1. The Schedule (Runs at 23:00 UTC, which is 02:00 AM in Sofia)
+# 1. The Schedule (cron(0 5/4 ...) = every 4 hours from 05:00 UTC; the rule is DISABLED)
 #    AWS EventBridge schedules are always in UTC
 resource "aws_cloudwatch_event_rule" "daily_etl_trigger" {
   name                = "daily-budget-etl-trigger"
@@ -12,7 +12,8 @@ resource "aws_cloudwatch_event_rule" "daily_etl_trigger" {
 
 # 2. IAM Role: Give EventBridge permission to push the "Start" button
 resource "aws_iam_role" "eventbridge_sfn_role" {
-  name = "eventbridge-invoke-sfn-role"
+  name                 = "budget-manager-eventbridge-role"
+  permissions_boundary = local.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement =[{

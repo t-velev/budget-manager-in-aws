@@ -1,6 +1,23 @@
+# Look up a subnet of the default VPC instead of hardcoding its ID
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+locals {
+  fargate_subnet_id = sort(data.aws_subnets.default.ids)[0]
+}
+
 # 1. IAM Role for Step Functions
 resource "aws_iam_role" "step_function_role" {
-  name = "budget-manager-sfn-role"
+  name                 = "budget-manager-sfn-role"
+  permissions_boundary = local.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement =[{
@@ -241,7 +258,7 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
           TaskDefinition = aws_ecs_task_definition.dbt_task.arn
           NetworkConfiguration = {
             AwsvpcConfiguration = {
-              Subnets        =["subnet-06df2f4600f421434"]
+              Subnets        = [local.fargate_subnet_id]
               AssignPublicIp = "ENABLED"
             }
           }

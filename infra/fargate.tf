@@ -30,7 +30,8 @@ resource "aws_cloudwatch_log_group" "dbt_logs" {
 
 # 3. IAM Role: Task Execution Role (Allows ECS to pull from ECR and push logs to CloudWatch)
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "dbt-ecs-execution-role"
+  name                 = "budget-manager-ecs-execution-role"
+  permissions_boundary = local.permissions_boundary_arn
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement =[{

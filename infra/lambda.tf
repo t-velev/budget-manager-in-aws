@@ -6,7 +6,8 @@ data "aws_ecr_image" "lambda_image" {
 
 # 1. IAM Role: The "Identity" of the Lambda function
 resource "aws_iam_role" "lambda_exec_role" {
-  name = "budget-manager-lambda-role"
+  name                 = "budget-manager-lambda-role"
+  permissions_boundary = local.permissions_boundary_arn
 
   # "Assume Role Policy" allows the Lambda service to use this identity
   assume_role_policy = jsonencode({
@@ -28,10 +29,26 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Allow it to upload files to Amazon S3
-resource "aws_iam_role_policy_attachment" "lambda_s3" {
-  role       = aws_iam_role.lambda_exec_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+# Allow it to write to the raw_notion/ prefix of the data lake ONLY (replaces AmazonS3FullAccess)
+resource "aws_iam_role_policy" "lambda_s3" {
+  name = "write-raw-notion"
+  role = aws_iam_role.lambda_exec_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = ["${data.aws_s3_bucket.data_lake.arn}/raw_notion/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = [data.aws_s3_bucket.data_lake.arn]
+      }
+    ]
+  })
 }
 
 # 3. The AWS ACCOUNT Lambda Function
@@ -58,7 +75,7 @@ resource "aws_lambda_function" "extract_account" {
       POSTGRES_DB          = aws_db_instance.budget_db.db_name
       POSTGRES_USER        = var.db_username
       POSTGRES_PASSWORD    = var.db_password
-      S3_BUCKET_NAME       = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME       = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY       = var.notion_api_key
       NOTION_DB_ID_ACCOUNT = var.notion_db_id_account
     }
@@ -90,7 +107,7 @@ resource "aws_lambda_function" "extract_category" {
       POSTGRES_DB           = aws_db_instance.budget_db.db_name
       POSTGRES_USER         = var.db_username
       POSTGRES_PASSWORD     = var.db_password
-      S3_BUCKET_NAME        = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME        = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY        = var.notion_api_key
       NOTION_DB_ID_CATEGORY = var.notion_db_id_category
     }
@@ -122,7 +139,7 @@ resource "aws_lambda_function" "extract_subcategory" {
       POSTGRES_DB              = aws_db_instance.budget_db.db_name
       POSTGRES_USER            = var.db_username
       POSTGRES_PASSWORD        = var.db_password
-      S3_BUCKET_NAME           = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME           = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY           = var.notion_api_key
       NOTION_DB_ID_SUBCATEGORY = var.notion_db_id_subcategory
     }
@@ -154,7 +171,7 @@ resource "aws_lambda_function" "extract_year" {
       POSTGRES_DB       = aws_db_instance.budget_db.db_name
       POSTGRES_USER     = var.db_username
       POSTGRES_PASSWORD = var.db_password
-      S3_BUCKET_NAME    = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME    = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY    = var.notion_api_key
       NOTION_DB_ID_YEAR = var.notion_db_id_year
     }
@@ -186,7 +203,7 @@ resource "aws_lambda_function" "extract_month" {
       POSTGRES_DB        = aws_db_instance.budget_db.db_name
       POSTGRES_USER      = var.db_username
       POSTGRES_PASSWORD  = var.db_password
-      S3_BUCKET_NAME     = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME     = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY     = var.notion_api_key
       NOTION_DB_ID_MONTH = var.notion_db_id_month
     }
@@ -218,7 +235,7 @@ resource "aws_lambda_function" "extract_budget" {
       POSTGRES_DB         = aws_db_instance.budget_db.db_name
       POSTGRES_USER       = var.db_username
       POSTGRES_PASSWORD   = var.db_password
-      S3_BUCKET_NAME      = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME      = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY      = var.notion_api_key
       NOTION_DB_ID_BUDGET = var.notion_db_id_budget
     }
@@ -250,7 +267,7 @@ resource "aws_lambda_function" "extract_transaction" {
       POSTGRES_DB              = aws_db_instance.budget_db.db_name
       POSTGRES_USER            = var.db_username
       POSTGRES_PASSWORD        = var.db_password
-      S3_BUCKET_NAME           = aws_s3_bucket.data_lake.bucket
+      S3_BUCKET_NAME           = data.aws_s3_bucket.data_lake.bucket
       NOTION_API_KEY           = var.notion_api_key
       NOTION_DB_ID_TRANSACTION = var.notion_db_id_transaction
     }
