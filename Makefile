@@ -14,17 +14,16 @@ REGION        = eu-central-1
 ECR_BASE      = $(AWS_ACCOUNT_ID).dkr.ecr.$(REGION).amazonaws.com/budget-manager-lambdas
 LOGIN_PROFILE = tf-login
 ROLE_PROFILE  = tf-deployer
+TF_PROFILE    = tf-terraform
 
-# "WITH_ROLE" is a prefix that means: run the NEXT command wearing the terraform-deployer
-# role's temporary 1-hour badge. Terraform cannot ask for your MFA code, so "make auth" asks
-# for it first, and this prefix just picks up the badge that was already issued.
-# Nothing is written to disk and the badge is only given to that one command.
-WITH_ROLE = env $$(aws configure export-credentials --profile $(ROLE_PROFILE) --format env-no-export | xargs)
+# Terraform picks up the role's badge through the tf-terraform profile (a credential_process
+# profile), so no credentials ever appear on a command line.
+WITH_ROLE = AWS_PROFILE=$(TF_PROFILE) TF_VAR_aws_account_id=$(AWS_ACCOUNT_ID)
 
 # ============================ 1. SIGNING IN ============================
 
 # Once per working day (or when AWS says your session expired):
-# opens the browser, you sign in as tvelev with password + MFA.
+# opens the browser, you sign in as your daily IAM user.
 login:
 	aws login --profile $(LOGIN_PROFILE)
 
@@ -122,5 +121,7 @@ audit:
 	@echo "== Security groups (non-default)"; aws ec2 describe-security-groups --region $(REGION) --profile $(LOGIN_PROFILE) --query "SecurityGroups[?GroupName!='default'].GroupName" --output text
 	@echo "== Elastic IPs";         aws ec2 describe-addresses --region $(REGION) --profile $(LOGIN_PROFILE) --query 'Addresses[].PublicIp' --output text
 	@echo "== Project IAM roles (old and new names)"; aws iam list-roles --profile $(LOGIN_PROFILE) --query "Roles[?starts_with(RoleName,'budget-manager-') || RoleName=='dbt-ecs-execution-role' || RoleName=='eventbridge-invoke-sfn-role' || starts_with(RoleName,'AWSGlueServiceRole-Budget')].RoleName" --output text
+	@echo "== RDS snapshots";         aws rds describe-db-snapshots --region $(REGION) --profile $(LOGIN_PROFILE) --query 'DBSnapshots[].DBSnapshotIdentifier' --output text
+	@echo "== RDS automated backups"; aws rds describe-db-instance-automated-backups --region $(REGION) --profile $(LOGIN_PROFILE) --query 'DBInstanceAutomatedBackups[].DBInstanceIdentifier' --output text
 
 .PHONY: login auth init plan apply ecr ecr-login push-lambda push-dbt deploy-lambda deploy-dbt up down clean-logs audit
