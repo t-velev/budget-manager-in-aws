@@ -1,0 +1,8 @@
+.env
+.git
+infra/
+*.tfstate*
+*.tfvars
+*.tfvars.json
+iam_test_files/
+dbt/logs/

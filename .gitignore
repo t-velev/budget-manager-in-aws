@@ -1,9 +1,15 @@
 # TERRAFORM
 .terraform/
 .terraform.lock.hcl
+# .tfstate files
 *.tfstate
 *.tfstate.backup
+# tfvars files
 *.tfvars
+*.tfvars.json
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
 
 # PYTHON AND ENV
 **/__pycache__/
@@ -18,3 +24,4 @@ docs/AWS_Account_Hardening.md
 docs/AWS_Terraform_Deployer_Setup.md
 iam_test_files/*
 config_backups/*
+*.log
