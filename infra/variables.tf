@@ -41,3 +41,8 @@ variable "notion_db_id_account" {
 variable "notion_db_id_transaction" {
   type = string
 }
+
+variable "aws_account_id" {
+  description = "AWS account this project may run in (comes from .env via TF_VAR_aws_account_id)"
+  type        = string
+}

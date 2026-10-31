@@ -3,7 +3,7 @@ provider "aws" {
   region = "eu-central-1"
 
   # Safety net: Terraform refuses to run against any other AWS account
-  allowed_account_ids = ["089029531899"]
+  allowed_account_ids = [var.aws_account_id]
 
   # Every resource gets this tag, which makes the post-destroy leftover audit easy
   default_tags {
@@ -24,7 +24,7 @@ locals {
 # 2. Security Group: The Virtual Firewall
 resource "aws_security_group" "rds_sg" {
   name        = "budget-manager-rds-sg"
-  description = "Allow inbound PostgreSQL traffic (Lambda runs outside a VPC, so no fixed source IP)"
+  description = "Allow inbound PostgreSQL traffic (Lambda runs outside a VPC, so no fixed source IP). Deploy windows must stay short; always run 'make down'."
 
   # INGRESS (Incoming traffic): Allow Port 5432 from anywhere (for AWS Lambda)
   ingress {
