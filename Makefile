@@ -101,17 +101,25 @@ clean-logs:
 	  done; \
 	done
 
+# Empties the raw_notion/ folder of the data lake bucket (the CSV extracts the Lambdas write).
+# Runs as the terraform-deployer role, which may delete ONLY under raw_notion/ in that bucket.
+# It shows how many objects it found and asks you to type yes before deleting anything.
+clean-raw: auth
+	@echo "Objects currently under raw_notion/ (the last lines show the totals):"
+	@aws s3 ls s3://aws-budget-manager-datalake-$(AWS_ACCOUNT_ID)/raw_notion/ --recursive --summarize --profile $(ROLE_PROFILE) | tail -n 3
+	@printf "Type yes to delete EVERYTHING under raw_notion/: "; read ans; [ "$$ans" = "yes" ] || { echo "Cancelled."; exit 1; }
+	aws s3 rm s3://aws-budget-manager-datalake-$(AWS_ACCOUNT_ID)/raw_notion/ --recursive --profile $(ROLE_PROFILE)
+
 # Read-only. Lists anything from this project that still exists in AWS (and could cost money).
 # After "make down", every section below should print nothing. Uses your normal login.
 # It deliberately ignores things that are not ours or are free and automatic: your Databricks
-# Lambda functions and logs, the shared /aws-glue/crawlers log group, and the
+# logs, the shared /aws-glue/crawlers log group, and the
 # StepFunctionsGetEventsForECSTaskRule rule that Step Functions creates by itself (it is free).
 audit:
 	@echo "== Resources tagged Project=budget-manager"
 	@aws resourcegroupstaggingapi get-resources --region $(REGION) --profile $(LOGIN_PROFILE) --tag-filters Key=Project,Values=budget-manager --query 'ResourceTagMappingList[].ResourceARN' --output text
 	@echo "== RDS instances";       aws rds describe-db-instances --region $(REGION) --profile $(LOGIN_PROFILE) --query 'DBInstances[].DBInstanceIdentifier' --output text
 	@echo "== ECS clusters";        aws ecs list-clusters --region $(REGION) --profile $(LOGIN_PROFILE) --query 'clusterArns' --output text
-	@echo "== Lambda functions";    aws lambda list-functions --region $(REGION) --profile $(LOGIN_PROFILE) --query "Functions[?starts_with(FunctionName,'extract_and_load_') || FunctionName=='reset_raw_notion_dates'].FunctionName" --output text
 	@echo "== Step Functions";      aws stepfunctions list-state-machines --region $(REGION) --profile $(LOGIN_PROFILE) --query 'stateMachines[].name' --output text
 	@echo "== EventBridge rules";   aws events list-rules --region $(REGION) --profile $(LOGIN_PROFILE) --query "Rules[?Name!='StepFunctionsGetEventsForECSTaskRule'].Name" --output text
 	@echo "== ECR repositories";    aws ecr describe-repositories --region $(REGION) --profile $(LOGIN_PROFILE) --query 'repositories[].repositoryName' --output text
@@ -124,4 +132,4 @@ audit:
 	@echo "== RDS snapshots";         aws rds describe-db-snapshots --region $(REGION) --profile $(LOGIN_PROFILE) --query 'DBSnapshots[].DBSnapshotIdentifier' --output text
 	@echo "== RDS automated backups"; aws rds describe-db-instance-automated-backups --region $(REGION) --profile $(LOGIN_PROFILE) --query 'DBInstanceAutomatedBackups[].DBInstanceIdentifier' --output text
 
-.PHONY: login auth init plan apply ecr ecr-login push-lambda push-dbt deploy-lambda deploy-dbt up down clean-logs audit
+.PHONY: login auth init plan apply ecr ecr-login push-lambda push-dbt deploy-lambda deploy-dbt up down clean-logs clean-raw audit
