@@ -24,7 +24,7 @@ locals {
 # 2. Security Group: The Virtual Firewall
 resource "aws_security_group" "rds_sg" {
   name        = "budget-manager-rds-sg"
-  description = "Allow inbound PostgreSQL traffic (Lambda runs outside a VPC, so no fixed source IP). Deploy windows must stay short; always run 'make down'."
+  description = "Allow inbound PostgreSQL traffic (Lambda runs outside a VPC, so no fixed source IP). Deploy windows must stay short; always run make down."
 
   # INGRESS (Incoming traffic): Allow Port 5432 from anywhere (for AWS Lambda)
   ingress {
