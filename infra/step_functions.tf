@@ -89,6 +89,11 @@ resource "aws_sfn_state_machine" "etl_pipeline" {
   name     = "budget-manager-etl-pipeline"
   role_arn = aws_iam_role.step_function_role.arn
 
+  # Wait until the role's permissions are attached before creating the state machine.
+  # Without this, Step Functions can try to use the role a moment too early (the
+  # ACCESS DENIED email burst during "make up").
+  depends_on = [aws_iam_role_policy.sfn_execution_policy]
+
   # ASL (Amazon States Language) - This is the DAG definition!
   definition = jsonencode({
     Comment = "Notion to DWH ETL Pipeline",
