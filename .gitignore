@@ -19,9 +19,7 @@ terraform.rc
 rebuild_after_destroy_steps.md
 *.ignored
 .coverage
-docs/AWS_Access_Runbook_Budget_Manager.md
-docs/AWS_Account_Hardening.md
-docs/AWS_Terraform_Deployer_Setup.md
+docs/AWS*
 iam_test_files/*
-config_backups/*
 *.log
+*security-alerts*.yml
